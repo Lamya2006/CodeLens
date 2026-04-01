@@ -1,0 +1,2 @@
+"""Retriever stub for CodeLens."""
+
