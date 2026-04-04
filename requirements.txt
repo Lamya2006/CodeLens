@@ -4,6 +4,6 @@ crewai
 llama-index
 pinecone-client
 PyGithub
-gitpython
 python-dotenv
 fastmcp
+httpx
