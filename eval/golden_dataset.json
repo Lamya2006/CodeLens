@@ -1,0 +1,122 @@
+[
+  {
+    "url": "https://github.com/adhirajcs/django-to-do",
+    "label": "human",
+    "expected_quality_range": [45, 72],
+    "notes": "Beginner Django to-do app; likely human iterative development with practical imperfections and direct CRUD structure."
+  },
+  {
+    "url": "https://github.com/YashMarmat/Fullstack_TODO_APP",
+    "label": "human",
+    "expected_quality_range": [50, 76],
+    "notes": "Student-style full-stack todo project combining React and Django with likely incremental implementation."
+  },
+  {
+    "url": "https://github.com/Muawiya-contact/Hangman-game-on-Py",
+    "label": "human",
+    "expected_quality_range": [40, 68],
+    "notes": "Internship learning project; expected to show straightforward logic, direct naming, and human-scale iteration."
+  },
+  {
+    "url": "https://github.com/DS-Popeye/CodeAlpha_Internship_Task",
+    "label": "human",
+    "expected_quality_range": [38, 66],
+    "notes": "Internship task repository with likely informal structure and evidence of progressive task-by-task development."
+  },
+  {
+    "url": "https://github.com/ZeroNiki/ToDo-Django",
+    "label": "human",
+    "expected_quality_range": [42, 70],
+    "notes": "Personal Django todo app with expected signs of hand-built iterative web development."
+  },
+  {
+    "url": "https://github.com/Saketh-Chandra/My_ToDO",
+    "label": "human",
+    "expected_quality_range": [48, 74],
+    "notes": "Basic login-based todo application; expected to contain practical, human-authored CRUD patterns."
+  },
+  {
+    "url": "https://github.com/Ram-95/to_do_app",
+    "label": "human",
+    "expected_quality_range": [44, 70],
+    "notes": "Small Django app with likely conventional hand-written logic, limited abstraction, and common beginner rough edges."
+  },
+  {
+    "url": "https://github.com/Raymond-ap/todo_application",
+    "label": "human",
+    "expected_quality_range": [46, 72],
+    "notes": "Challenge-style todo application with expected human iteration and mixed frontend/backend polish."
+  },
+  {
+    "url": "https://github.com/Solomonkassa/Todoapp",
+    "label": "human",
+    "expected_quality_range": [40, 68],
+    "notes": "Small CRUD-style todo project, useful as a human baseline with likely direct, minimally abstracted implementation."
+  },
+  {
+    "url": "https://github.com/hcientist/OnlinePythonTutor",
+    "label": "human",
+    "expected_quality_range": [55, 82],
+    "notes": "Older hand-built educational project with visible TODO markers and long-term human iteration history."
+  },
+  {
+    "url": "https://github.com/rustic-ai/codeprism",
+    "label": "ai_heavy",
+    "expected_quality_range": [68, 92],
+    "notes": "Repository explicitly described as 100% AI-generated, making it a strong AI-heavy benchmark."
+  },
+  {
+    "url": "https://github.com/codingforentrepreneurs/Cursor-Django",
+    "label": "ai_heavy",
+    "expected_quality_range": [60, 88],
+    "notes": "Cursor-oriented teaching repo likely to contain highly structured AI-assisted scaffolding and polished conventions."
+  },
+  {
+    "url": "https://github.com/sensay-io/sensay-cli",
+    "label": "ai_heavy",
+    "expected_quality_range": [58, 86],
+    "notes": "Repository described by its org as an experimental, vibe-coded CLI; useful as an AI-assisted baseline."
+  },
+  {
+    "url": "https://github.com/cedrickchee/vibe-jet",
+    "label": "ai_heavy",
+    "expected_quality_range": [62, 90],
+    "notes": "Project publicly described as created using Gemini 2.5 Pro through vibe coding."
+  },
+  {
+    "url": "https://github.com/nia-cloud-official/git-mango-h5",
+    "label": "ai_heavy",
+    "expected_quality_range": [56, 84],
+    "notes": "v0.dev and vibe-coding tagged app; likely to show highly polished generated structure and template-style consistency."
+  },
+  {
+    "url": "https://github.com/shinekyaw/creative-portfolio",
+    "label": "ai_heavy",
+    "expected_quality_range": [58, 86],
+    "notes": "Repository explicitly described as built using v0.dev by Vercel, indicating heavy AI-generated frontend scaffolding."
+  },
+  {
+    "url": "https://github.com/W3JDev/N8N-Workflow-Builder",
+    "label": "ai_heavy",
+    "expected_quality_range": [55, 85],
+    "notes": "v0.dev-powered no-code workflow app likely exhibiting generated component patterns and uniform style."
+  },
+  {
+    "url": "https://github.com/Viper373/ZeroHome",
+    "label": "ai_heavy",
+    "expected_quality_range": [55, 82],
+    "notes": "Cursor and v0.dev tagged homepage project with likely strong AI-assisted frontend generation patterns."
+  },
+  {
+    "url": "https://github.com/automazeio/ccpm",
+    "label": "ai_heavy",
+    "expected_quality_range": [60, 86],
+    "notes": "Vibe-coding tagged Claude Code project likely to contain AI-assisted structure and highly regular conventions."
+  },
+  {
+    "url": "https://github.com/chaterm/Chaterm",
+    "label": "ai_heavy",
+    "expected_quality_range": [62, 88],
+    "notes": "AI terminal project tagged under vibe-coding; expected to show strong AI-assisted development signals."
+  }
+]

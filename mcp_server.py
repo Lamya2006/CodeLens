@@ -30,7 +30,7 @@ from guardrails.output_filter import OutputFilter
 from rag.indexer import CodeIndexer
 from rag.retriever import CodeRetriever
 from tools.github_api import GithubAnalyzer
-from tools.gitnexus_tool import GitNexusAnalyzer
+from tools.gitnexus_tool import open_repo_analyzer
 from tools.pinecone_tool import PineconeStore
 from tools.resume_parser import ResumeParser, SkillMatcher
 
@@ -124,7 +124,7 @@ def _run_repo_analysis_pipeline(
 
     candidate_username = _candidate_username_from_url(github_url)
 
-    with GitNexusAnalyzer(github_url) as gitnexus:
+    with open_repo_analyzer(github_url) as gitnexus:
         files = gitnexus.get_file_contents()
         knowledge_graph = gitnexus.get_knowledge_graph()
         output_filter.validate_repo_size(files, commits)
@@ -267,7 +267,7 @@ def match_resume_to_repo(resume_pdf_path: str, github_url: str) -> str:
         pdf_bytes = _read_pdf_file(resume_pdf_path)
         candidate_username = _candidate_username_from_url(github_url)
 
-        with GitNexusAnalyzer(github_url) as gitnexus:
+        with open_repo_analyzer(github_url) as gitnexus:
             files = gitnexus.get_file_contents()
             commits = GithubAnalyzer(github_url).get_commits()
             output_filter.validate_repo_size(files, commits)

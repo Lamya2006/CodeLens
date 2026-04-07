@@ -76,8 +76,6 @@ class OutputFilter:
 
     def validate_repo_size(self, files: list[dict[str, Any]], commits: list[dict[str, Any]]) -> None:
         commit_count = len(commits)
-        if commit_count < 3:
-            raise ValueError("Too few commits for meaningful analysis")
 
         code_files = [file_data for file_data in files if self._is_code_file(file_data)]
         if not code_files:
@@ -93,10 +91,40 @@ class OutputFilter:
     def filter_verdict(self, verdict: dict[str, Any]) -> dict[str, Any]:
         cleaned = self._replace_language(copy.deepcopy(verdict))
         cleaned = self._clamp_scores(cleaned)
+        cleaned = self._penalize_sparse_commit_history(cleaned)
         cleaned["data_confidence"] = self._compute_confidence()
         cleaned["pre_llm_warning"] = self._compute_pre_llm_warning()
         cleaned["disclaimer"] = self.DISCLAIMER
         return cleaned
+
+    def _penalize_sparse_commit_history(self, verdict: dict[str, Any]) -> dict[str, Any]:
+        """Few commits = weak signal; cap scores instead of blocking analysis."""
+        n = self._last_commit_count
+        if n >= 3:
+            return verdict
+
+        cap_commit_health = {0: 15, 1: 25, 2: 35}.get(n, 35)
+        ch = verdict.get("commit_health_score")
+        if isinstance(ch, int):
+            verdict["commit_health_score"] = min(ch, cap_commit_health)
+
+        overall_penalty = {0: 18, 1: 12, 2: 8}.get(n, 8)
+        oq = verdict.get("overall_quality_score")
+        if isinstance(oq, int):
+            verdict["overall_quality_score"] = max(0, oq - overall_penalty)
+
+        concerns = verdict.get("concerns")
+        if isinstance(concerns, list):
+            msg = (
+                f"Sparse Git history ({n} commit{'s' if n != 1 else ''} in the analyzed sample) — "
+                "commit-based signals are limited; verify practices in interview."
+            )
+            merged = list(concerns)
+            if msg not in merged:
+                merged.append(msg)
+            verdict["concerns"] = merged[:5]
+
+        return verdict
 
     def flag_vibe_coding(
         self,
@@ -104,6 +132,12 @@ class OutputFilter:
         commit_patterns: dict[str, Any],
     ) -> list[str]:
         flags: list[str] = []
+
+        if 0 < self._last_commit_count < 3:
+            flags.append(
+                f"Sparse commit history ({self._last_commit_count} commits in sample) — "
+                "weak signal for development practices"
+            )
 
         pct_top3 = float(commit_patterns.get("pct_code_in_top3_commits", 0.0))
         if pct_top3 > 70:

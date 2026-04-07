@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import base64
+from io import BytesIO
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -14,8 +15,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-import anthropic
-from anthropic import APIError, BadRequestError
+import requests
+from pypdf import PdfReader
 
 from tools.pinecone_tool import PineconeStore
 from tools.project_env import load_project_env
@@ -24,13 +25,22 @@ load_project_env()
 
 
 class ResumeParser:
-    """Extract structured resume and job description data with Claude."""
+    """Extract structured resume and job description data via OpenRouter."""
 
-    MODEL_CANDIDATES = ["claude-sonnet-4-5", "claude-sonnet-4-20250514"]
+    MODEL_CANDIDATES = [
+        "anthropic/claude-sonnet-4",
+        "anthropic/claude-3.5-sonnet",
+        "claude-sonnet-4-5",
+    ]
     MAX_TOKENS = 2000
 
     def __init__(self) -> None:
-        self.client = anthropic.Anthropic()
+        self.api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        self.base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+        self.site_url = os.getenv("OPENROUTER_SITE_URL", "http://localhost")
+        self.app_name = os.getenv("OPENROUTER_APP_NAME", "CodeLens")
+        if not self.api_key:
+            raise RuntimeError("OPENROUTER_API_KEY is required for ResumeParser.")
 
     @staticmethod
     def _resume_schema() -> str:
@@ -84,48 +94,82 @@ class ResumeParser:
             start = cleaned.find("{")
             end = cleaned.rfind("}")
             if start == -1 or end == -1 or end <= start:
-                raise ValueError("Claude did not return valid JSON.")
+                raise ValueError("Model did not return valid JSON.")
             try:
                 return json.loads(cleaned[start : end + 1])
             except json.JSONDecodeError as exc:
-                raise ValueError("Claude returned malformed JSON.") from exc
+                raise ValueError("Model returned malformed JSON.") from exc
 
-    @staticmethod
-    def _collect_text(response: Any) -> str:
-        parts: list[str] = []
-        for block in response.content:
-            if getattr(block, "type", None) == "text":
-                parts.append(block.text)
-        return "\n".join(parts).strip()
-
-    def _create_message(self, content: list[dict[str, Any]], system_prompt: str) -> dict[str, Any]:
+    def _create_message(self, user_text: str, system_prompt: str) -> dict[str, Any]:
         last_error: Exception | None = None
         for model_name in self.MODEL_CANDIDATES:
             try:
-                response = self.client.messages.create(
-                    model=model_name,
-                    max_tokens=self.MAX_TOKENS,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": content}],
+                response = requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": self.site_url,
+                        "X-Title": self.app_name,
+                    },
+                    json={
+                        "model": model_name,
+                        "max_tokens": self.MAX_TOKENS,
+                        "temperature": 0,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_text},
+                        ],
+                    },
+                    timeout=90,
                 )
-                return self._extract_json(self._collect_text(response))
-            except BadRequestError as exc:
+                if response.status_code >= 400:
+                    message = response.text.lower()
+                    if response.status_code in {400, 404} and "model" in message:
+                        last_error = RuntimeError(response.text)
+                        continue
+                    response.raise_for_status()
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise RuntimeError("OpenRouter returned no choices.")
+                content = choices[0].get("message", {}).get("content", "")
+                if isinstance(content, list):
+                    text_parts = [
+                        str(part.get("text", ""))
+                        for part in content
+                        if isinstance(part, dict) and part.get("type") == "text"
+                    ]
+                    content = "\n".join(text_parts).strip()
+                return self._extract_json(str(content))
+            except requests.HTTPError as exc:
                 last_error = exc
-                message = str(exc)
-                if "model" in message.lower():
+                raise RuntimeError(f"OpenRouter API request failed: {exc}") from exc
+            except requests.RequestException as exc:
+                last_error = exc
+                raise RuntimeError(f"OpenRouter network request failed: {exc}") from exc
+            except ValueError as exc:
+                message = str(exc).lower()
+                if "model" in message:
                     continue
                 raise
-            except APIError as exc:
-                last_error = exc
-                raise RuntimeError(f"Anthropic API request failed: {exc}") from exc
 
         raise RuntimeError(
-            "No supported Claude Sonnet model was available. Tried: "
+            "No supported OpenRouter model was available. Tried: "
             + ", ".join(self.MODEL_CANDIDATES)
         ) from last_error
 
+    @staticmethod
+    def _pdf_to_text(pdf_bytes: bytes) -> str:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        pages = [(page.extract_text() or "").strip() for page in reader.pages]
+        text = "\n\n".join(page for page in pages if page)
+        if not text.strip():
+            raise ValueError("Unable to extract text from PDF.")
+        return text
+
     def parse_from_pdf(self, pdf_bytes: bytes) -> dict[str, Any]:
-        pdf_data = base64.b64encode(pdf_bytes).decode()
+        extracted_text = self._pdf_to_text(pdf_bytes)
         system_prompt = (
             "Extract structured resume data from the supplied PDF. "
             "Return ONLY a JSON object matching this schema exactly:\n"
@@ -133,18 +177,12 @@ class ResumeParser:
             "Use empty arrays when data is missing, infer experience level conservatively, "
             "and ensure years_experience is an integer."
         )
-        content = [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": pdf_data,
-                },
-            },
-            {"type": "text", "text": "Extract the resume into the requested JSON schema only."},
-        ]
-        return self._create_message(content, system_prompt)
+        user_text = (
+            "Extract the resume into the requested JSON schema only.\n\n"
+            "Resume text extracted from PDF:\n"
+            f"{extracted_text}"
+        )
+        return self._create_message(user_text, system_prompt)
 
     def parse_from_text(self, text: str) -> dict[str, Any]:
         system_prompt = (
@@ -154,8 +192,7 @@ class ResumeParser:
             "Use empty arrays when data is missing, infer experience level conservatively, "
             "and ensure years_experience is an integer."
         )
-        content = [{"type": "text", "text": text}]
-        return self._create_message(content, system_prompt)
+        return self._create_message(text, system_prompt)
 
     def parse_job_description(self, jd_text: str) -> dict[str, Any]:
         system_prompt = (
@@ -164,8 +201,7 @@ class ResumeParser:
             f"{self._job_schema()}\n"
             "Pick a single concise domain such as backend, frontend, fullstack, ML, data, mobile, security, or devops."
         )
-        content = [{"type": "text", "text": jd_text}]
-        return self._create_message(content, system_prompt)
+        return self._create_message(jd_text, system_prompt)
 
 
 class SkillMatcher:

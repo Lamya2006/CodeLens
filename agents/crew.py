@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -20,10 +21,191 @@ from tools.project_env import load_project_env
 
 load_project_env()
 
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    return int(raw)
+
+
+def _json_utf8_byte_length(obj: Any) -> int:
+    return len(json.dumps(obj, indent=2, default=str).encode("utf-8"))
+
+
+def _truncate_str(s: str, max_chars: int, label: str = "") -> str:
+    if len(s) <= max_chars:
+        return s
+    suffix = f"\n\n[... truncated ({label}) ...]"
+    return s[: max(0, max_chars - len(suffix))] + suffix
+
+
+def _compact_files_for_llm(
+    files: list[Any],
+    max_files: int,
+    max_content: int,
+) -> tuple[list[Any], str | None]:
+    if not isinstance(files, list) or not files:
+        return files, None
+    scored: list[tuple[int, int, dict[str, Any]]] = []
+    for i, f in enumerate(files):
+        if not isinstance(f, dict):
+            continue
+        lc = int(f.get("line_count") or 0)
+        scored.append((lc, i, f))
+    if not scored:
+        return files, None
+    scored.sort(key=lambda x: -x[0])
+    picked = [x[2] for x in scored[:max_files]]
+    note = None
+    if len(files) > max_files:
+        note = f"files reduced from {len(files)} to {max_files} (by line_count)."
+    for f in picked:
+        for key in ("content", "text", "raw"):
+            v = f.get(key)
+            if isinstance(v, str) and len(v) > max_content:
+                f[key] = _truncate_str(v, max_content, key)
+        syms = f.get("symbols")
+        if isinstance(syms, list):
+            slim: list[Any] = []
+            for s in syms[:40]:
+                if not isinstance(s, dict):
+                    slim.append(s)
+                    continue
+                s2 = dict(s)
+                code = s2.get("code")
+                if isinstance(code, str) and len(code) > 3500:
+                    s2["code"] = _truncate_str(code, 3500, "symbol code")
+                slim.append(s2)
+            f["symbols"] = slim
+        elif isinstance(syms, dict):
+            items = syms.get("items")
+            if isinstance(items, list):
+                syms = dict(syms)
+                syms["items"] = items[:40]
+                f["symbols"] = syms
+    return picked, note
+
+
+def _compact_knowledge_graph(kg: dict[str, Any], list_cap: int) -> dict[str, Any]:
+    out = dict(kg)
+    for list_key in (
+        "file_tree",
+        "function_list",
+        "class_list",
+        "import_relationships",
+        "call_chains",
+    ):
+        v = out.get(list_key)
+        if isinstance(v, list) and len(v) > list_cap:
+            out[list_key] = v[:list_cap]
+    if _json_utf8_byte_length(out) > 400_000:
+        return {
+            "fallback_mode": kg.get("fallback_mode"),
+            "warning": kg.get("warning"),
+            "file_tree_sample": (kg.get("file_tree") or [])[: min(120, list_cap)],
+            "function_list_sample": (kg.get("function_list") or [])[: min(80, list_cap)],
+            "class_list_sample": (kg.get("class_list") or [])[: min(80, list_cap)],
+            "note": "knowledge_graph lists truncated for LLM payload size",
+        }
+    return out
+
+
+def _truncate_commits(commits: Any, max_msg: int) -> None:
+    if not isinstance(commits, list):
+        return
+    for c in commits:
+        if not isinstance(c, dict):
+            continue
+        msg = c.get("message")
+        if isinstance(msg, str) and len(msg) > max_msg:
+            c["message"] = _truncate_str(msg, max_msg, "commit message")
+
+
+def _truncate_resume_and_matches(data: dict[str, Any], max_resume: int, max_blob: int) -> None:
+    rd = data.get("resume_data")
+    if isinstance(rd, dict):
+        for k in ("raw_text", "text", "full_text"):
+            v = rd.get(k)
+            if isinstance(v, str) and len(v) > max_resume:
+                rd[k] = _truncate_str(v, max_resume, k)
+    for key in ("skill_matches", "project_matches"):
+        block = data.get(key)
+        if not isinstance(block, list):
+            continue
+        for item in block:
+            if not isinstance(item, dict):
+                continue
+            for ik, iv in list(item.items()):
+                if isinstance(iv, str) and len(iv) > max_blob:
+                    item[ik] = _truncate_str(iv, max_blob, ik)
+
+
+def compact_analysis_data_for_llm(data: dict[str, Any]) -> dict[str, Any]:
+    """Shrink repo analysis dict so CrewAI prompts stay under provider input limits (~8MB)."""
+    budget = int(os.getenv("CREW_MAX_ANALYSIS_JSON_BYTES", "5500000"))
+    max_files = int(os.getenv("CREW_MAX_FILES", "48"))
+    max_file_chars = int(os.getenv("CREW_MAX_FILE_CONTENT_CHARS", "9500"))
+    max_commit_msg = int(os.getenv("CREW_MAX_COMMIT_MESSAGE_CHARS", "1500"))
+    kg_list_cap = int(os.getenv("CREW_MAX_KG_LIST_ITEMS", "220"))
+    max_resume = int(os.getenv("CREW_MAX_RESUME_TEXT_CHARS", "48000"))
+    max_match_blob = int(os.getenv("CREW_MAX_MATCH_FIELD_CHARS", "12000"))
+
+    last_compact: dict[str, Any] | None = None
+    for attempt in range(8):
+        note_parts: list[str] = []
+        out = copy.deepcopy(data)
+        files = out.get("files")
+        if isinstance(files, list):
+            compacted, fnote = _compact_files_for_llm(files, max_files, max_file_chars)
+            out["files"] = compacted
+            if fnote:
+                note_parts.append(fnote)
+        kg = out.get("knowledge_graph")
+        if isinstance(kg, dict):
+            out["knowledge_graph"] = _compact_knowledge_graph(kg, kg_list_cap)
+        _truncate_commits(out.get("commits"), max_commit_msg)
+        _truncate_resume_and_matches(out, max_resume, max_match_blob)
+        jd = out.get("job_description")
+        if isinstance(jd, dict):
+            dumped = json.dumps(jd, default=str)
+            if len(dumped) > 80_000:
+                out["job_description"] = {"note": "job description truncated", "preview": dumped[:80_000]}
+        css = out.get("company_style_summary")
+        if isinstance(css, str) and len(css) > 100_000:
+            out["company_style_summary"] = _truncate_str(css, 100_000, "company_style_summary")
+
+        last_compact = out
+        n = _json_utf8_byte_length(out)
+        if n <= budget:
+            if note_parts or attempt > 0:
+                out["_llm_payload_note"] = " ".join(note_parts).strip()
+                if attempt > 0:
+                    out["_llm_payload_note"] = (
+                        (out.get("_llm_payload_note") or "") + f" Iteration {attempt + 1} shrink."
+                    ).strip()
+            return out
+
+        max_files = max(6, max_files // 2)
+        max_file_chars = max(2500, max_file_chars // 2)
+        kg_list_cap = max(40, kg_list_cap // 2)
+        max_commit_msg = max(400, max_commit_msg // 2)
+
+    if last_compact is not None:
+        last_compact["_llm_payload_note"] = (
+            (last_compact.get("_llm_payload_note") or "")
+            + " Payload still large after max shrink iterations; consider lowering CREW_MAX_* env vars."
+        ).strip()
+        return last_compact
+    return {}
+
+
 llm = LLM(
-    model="claude-sonnet-4-5",
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-    max_tokens=4096,
+    model=os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4"),
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+    # OpenRouter 402: lower OPENROUTER_MAX_TOKENS if balance is low vs. large prompts.
+    max_tokens=_env_int("OPENROUTER_MAX_TOKENS", 4096),
 )
 
 
@@ -140,8 +322,8 @@ class CodeLensCrew:
     """Run the multi-agent CodeLens evaluation workflow."""
 
     def __init__(self, analysis_data: dict[str, Any]) -> None:
-        self.analysis_data = analysis_data
-        self.analysis_json = json.dumps(analysis_data, indent=2, default=str)
+        self.analysis_data = compact_analysis_data_for_llm(analysis_data)
+        self.analysis_json = json.dumps(self.analysis_data, indent=2, default=str)
 
         self.commit_behavior_agent = Agent(
             role="Senior Engineering Manager",
@@ -203,6 +385,28 @@ class CodeLensCrew:
         )
 
     def run(self) -> dict[str, Any]:
+        reports = self.run_with_reports()
+        return reports["verdict"]
+
+    def run_with_reports(self) -> dict[str, Any]:
+        tasks, agents, report_names = self._build_execution_plan()
+        crew = Crew(
+            agents=agents,
+            tasks=tasks,
+            process=Process.sequential,
+            verbose=False,
+        )
+        result = crew.kickoff()
+
+        task_outputs = getattr(result, "tasks_output", []) or []
+        reports: dict[str, Any] = {}
+        for name, task_output in zip(report_names, task_outputs, strict=False):
+            reports[name] = self._coerce_task_output(task_output)
+
+        final_verdict = reports.get("judge") or self._coerce_result(result)
+        return {"verdict": final_verdict, "reports": reports}
+
+    def _build_execution_plan(self) -> tuple[list[Task], list[Agent], list[str]]:
         commit_task = Task(
             description=self._commit_task_description(),
             expected_output="A JSON object exactly matching the requested commit behavior schema.",
@@ -225,6 +429,7 @@ class CodeLensCrew:
         )
 
         tasks: list[Task] = [commit_task, code_quality_task, ai_usage_task]
+        report_names = ["commit_behavior", "code_quality", "ai_usage"]
         resume_task: Task | None = None
 
         if self.analysis_data.get("resume_data") is not None:
@@ -236,6 +441,7 @@ class CodeLensCrew:
                 output_json=ResumeMatchOutput,
             )
             tasks.append(resume_task)
+            report_names.append("resume_match")
 
         judge_context = [commit_task, code_quality_task, ai_usage_task]
         if resume_task is not None:
@@ -249,6 +455,7 @@ class CodeLensCrew:
             output_json=JudgeOutput,
         )
         tasks.append(judge_task)
+        report_names.append("judge")
 
         agents = [
             self.commit_behavior_agent,
@@ -258,23 +465,23 @@ class CodeLensCrew:
         ]
         if resume_task is not None:
             agents.insert(3, self.resume_match_agent)
+        return tasks, agents, report_names
 
-        crew = Crew(
-            agents=agents,
-            tasks=tasks,
-            process=Process.sequential,
-            verbose=False,
-        )
-        result = crew.kickoff()
+    @staticmethod
+    def _coerce_task_output(task_output: Any) -> dict[str, Any]:
+        if getattr(task_output, "json_dict", None):
+            return task_output.json_dict
+        raw = getattr(task_output, "raw", None) or str(task_output)
+        return json.loads(raw)
 
+    @staticmethod
+    def _coerce_result(result: Any) -> dict[str, Any]:
         if getattr(result, "json_dict", None):
             return result.json_dict
-
         if hasattr(result, "to_dict"):
             result_dict = result.to_dict()
             if isinstance(result_dict, dict):
                 return result_dict
-
         raw_output = getattr(result, "raw", None) or str(result)
         return json.loads(raw_output)
 

@@ -1,5 +1,4 @@
 streamlit
-anthropic
 crewai
 llama-index
 pinecone-client
@@ -12,3 +11,5 @@ voyageai
 llama-index-core
 llama-index-embeddings-voyageai
 requests
+requests-oauthlib
+pypdf

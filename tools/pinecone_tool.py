@@ -31,8 +31,12 @@ class PineconeStore:
     DIMENSION = 1024
     MODEL_NAME = "voyage-code-3"
     MAX_TEXT_CHARS = 16000
-    BATCH_SIZE = 64
-    UPSERT_BATCH_SIZE = 100
+    # Voyage embed API caps total tokens per request (~120k). Batch by estimated tokens, not fixed count.
+    DEFAULT_VOYAGE_MAX_BATCH_TOKENS = 100_000
+    DEFAULT_CHARS_PER_TOKEN_EST = 2.0
+    # Pinecone limits each upsert request size (~4MB). Large metadata["text"] × batch size can exceed it.
+    DEFAULT_UPSERT_BATCH_SIZE = 16
+    DEFAULT_METADATA_TEXT_CHARS = 8000
 
     def __init__(self) -> None:
         pinecone_api_key = os.getenv("PINECONE_API_KEY", "").strip()
@@ -84,6 +88,22 @@ class PineconeStore:
     def _truncate(text: str) -> str:
         return text[: PineconeStore.MAX_TEXT_CHARS]
 
+    def _estimate_tokens(self, truncated_text: str) -> int:
+        """Conservative token estimate so batch stays under Voyage's per-request token cap."""
+        per = float(os.getenv("VOYAGE_CHARS_PER_TOKEN_EST", str(self.DEFAULT_CHARS_PER_TOKEN_EST)))
+        per = max(per, 0.5)
+        return max(1, math.ceil(len(truncated_text) / per))
+
+    def _embed_batch_raw(self, batch: list[str]) -> list[list[float]]:
+        if not batch:
+            return []
+        response = self.voyage.embed(
+            batch,
+            model=self.MODEL_NAME,
+            input_type="document",
+        )
+        return list(response.embeddings)
+
     def embed_text(self, text: str) -> list[float]:
         truncated = self._truncate(text)
         response = self.voyage.embed(
@@ -94,17 +114,31 @@ class PineconeStore:
         return response.embeddings[0]
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Split into sub-batches under Voyage's max tokens per request (see env VOYAGE_MAX_BATCH_TOKENS)."""
+        max_tokens = int(os.getenv("VOYAGE_MAX_BATCH_TOKENS", str(self.DEFAULT_VOYAGE_MAX_BATCH_TOKENS)))
+        max_tokens = max(max_tokens, 1000)
+        max_items = int(os.getenv("VOYAGE_MAX_BATCH_ITEMS", "32"))
+        max_items = max(max_items, 1)
+
         vectors: list[list[float]] = []
-        for start in range(0, len(texts), self.BATCH_SIZE):
-            batch = [self._truncate(text) for text in texts[start : start + self.BATCH_SIZE]]
-            if not batch:
-                continue
-            response = self.voyage.embed(
-                batch,
-                model=self.MODEL_NAME,
-                input_type="document",
+        batch: list[str] = []
+        batch_tokens = 0
+
+        for text in texts:
+            truncated = self._truncate(text)
+            est = self._estimate_tokens(truncated)
+            overflow = batch and (
+                batch_tokens + est > max_tokens or len(batch) >= max_items
             )
-            vectors.extend(response.embeddings)
+            if overflow:
+                vectors.extend(self._embed_batch_raw(batch))
+                batch = []
+                batch_tokens = 0
+            batch.append(truncated)
+            batch_tokens += est
+
+        if batch:
+            vectors.extend(self._embed_batch_raw(batch))
         return vectors
 
     def upsert_chunks(self, chunks: list[dict[str, Any]], namespace: str) -> None:
@@ -115,15 +149,22 @@ class PineconeStore:
         vectors = self.embed_batch(texts)
         payload: list[dict[str, Any]] = []
 
+        meta_text_limit = int(os.getenv("PINECONE_METADATA_TEXT_CHARS", str(self.DEFAULT_METADATA_TEXT_CHARS)))
+        meta_text_limit = max(meta_text_limit, 512)
+        upsert_batch = int(os.getenv("PINECONE_UPSERT_BATCH_SIZE", str(self.DEFAULT_UPSERT_BATCH_SIZE)))
+        upsert_batch = max(upsert_batch, 1)
+
         for chunk, vector in zip(chunks, vectors, strict=True):
             source_metadata = chunk.get("metadata", {})
+            raw_text = chunk.get("text") or ""
+            stored_text = raw_text[:meta_text_limit]
             metadata = {
                 "file_path": source_metadata.get("file_path", ""),
                 "language": source_metadata.get("language", ""),
                 "repo": source_metadata.get("repo", ""),
                 "chunk_type": source_metadata.get("chunk_type", ""),
                 "symbol_name": source_metadata.get("symbol_name", ""),
-                "text": chunk["text"],
+                "text": stored_text,
             }
             if "type" in source_metadata:
                 metadata["type"] = source_metadata["type"]
@@ -136,8 +177,8 @@ class PineconeStore:
                 }
             )
 
-        for start in range(0, len(payload), self.UPSERT_BATCH_SIZE):
-            self.index.upsert(vectors=payload[start : start + self.UPSERT_BATCH_SIZE], namespace=namespace)
+        for start in range(0, len(payload), upsert_batch):
+            self.index.upsert(vectors=payload[start : start + upsert_batch], namespace=namespace)
 
     def query_similar(self, text: str, namespace: str, top_k: int = 5) -> list[dict[str, Any]]:
         vector = self.voyage.embed(
