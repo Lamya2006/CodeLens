@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import os
 import statistics
 import time
@@ -9,6 +16,10 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
+
+from tools.project_env import load_project_env
+
+load_project_env()
 
 from github import Auth, Github
 from github.ContentFile import ContentFile
@@ -105,13 +116,19 @@ class GithubAnalyzer:
         return timestamp.isoformat()
 
     @staticmethod
-    def _language_percentages(languages: dict[str, int]) -> dict[str, float]:
-        total_bytes = sum(languages.values())
+    def _language_percentages(languages: Any) -> dict[str, float]:
+        counts: dict[str, int] = {}
+        for language, raw in languages.items():
+            try:
+                counts[str(language)] = int(raw)
+            except (TypeError, ValueError):
+                continue
+        total_bytes = sum(counts.values())
         if total_bytes == 0:
             return {}
         return {
             language: round((byte_count / total_bytes) * 100, 2)
-            for language, byte_count in languages.items()
+            for language, byte_count in counts.items()
         }
 
     def _get_commit_objects(self, limit: int = 100) -> list[Any]:

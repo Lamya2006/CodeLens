@@ -7,3 +7,5 @@ PyGithub
 python-dotenv
 fastmcp
 httpx
+pinecone
+voyageai

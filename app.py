@@ -1,5 +1,15 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
 
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from tools.project_env import load_project_env
+
+load_project_env()
 
 st.set_page_config(
     page_title="CodeLens",
