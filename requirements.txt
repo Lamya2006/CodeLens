@@ -9,3 +9,6 @@ fastmcp
 httpx
 pinecone
 voyageai
+llama-index-core
+llama-index-embeddings-voyageai
+requests
