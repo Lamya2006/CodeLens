@@ -27,12 +27,26 @@ load_project_env()
 class ResumeParser:
     """Extract structured resume and job description data via OpenRouter."""
 
-    MODEL_CANDIDATES = [
-        "anthropic/claude-sonnet-4",
-        "anthropic/claude-3.5-sonnet",
-        "claude-sonnet-4-5",
-    ]
     MAX_TOKENS = 2000
+
+    @staticmethod
+    def _openrouter_model_ids() -> list[str]:
+        """API model ids (no `openrouter/` prefix). Honors OPENROUTER_MODEL, then fallbacks."""
+        raw = os.getenv("OPENROUTER_MODEL", "openrouter/google/gemma-4-26b-a4b-it").strip()
+        if raw.startswith("openrouter/"):
+            raw = raw[len("openrouter/") :]
+        primary = raw or "google/gemma-4-26b-a4b-it"
+        fallbacks = [
+            "google/gemma-4-26b-a4b-it",
+            "anthropic/claude-sonnet-4",
+            "anthropic/claude-3.5-sonnet",
+            "claude-sonnet-4-5",
+        ]
+        ordered: list[str] = []
+        for m in [primary, *fallbacks]:
+            if m and m not in ordered:
+                ordered.append(m)
+        return ordered
 
     def __init__(self) -> None:
         self.api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
@@ -102,7 +116,7 @@ class ResumeParser:
 
     def _create_message(self, user_text: str, system_prompt: str) -> dict[str, Any]:
         last_error: Exception | None = None
-        for model_name in self.MODEL_CANDIDATES:
+        for model_name in self._openrouter_model_ids():
             try:
                 response = requests.post(
                     f"{self.base_url}/chat/completions",
@@ -156,7 +170,7 @@ class ResumeParser:
 
         raise RuntimeError(
             "No supported OpenRouter model was available. Tried: "
-            + ", ".join(self.MODEL_CANDIDATES)
+            + ", ".join(self._openrouter_model_ids())
         ) from last_error
 
     @staticmethod

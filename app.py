@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,6 +42,24 @@ DISCLAIM_TEXT = (
     "CodeLens provides probabilistic signals to assist human judgment. "
     "All findings should be verified in a technical interview."
 )
+
+
+def _analysis_cooldown_seconds_remaining() -> float | None:
+    """Seconds left before another analysis run is allowed; None if no cooldown."""
+    raw = os.getenv("CODELENS_ANALYSIS_COOLDOWN_SECONDS")
+    try:
+        cooldown = int(raw) if raw is not None and str(raw).strip() != "" else 0
+    except ValueError:
+        cooldown = 0
+    if cooldown <= 0:
+        return None
+    last = st.session_state.get("_last_analysis_started_ts")
+    if last is None:
+        return None
+    elapsed = time.time() - float(last)
+    if elapsed >= cooldown:
+        return None
+    return cooldown - elapsed
 
 
 def format_exception_for_user(exc: BaseException) -> str:
@@ -722,7 +741,8 @@ def render_sidebar() -> None:
                 2. Index the codebase with GitNexus and embed chunks into Pinecone.
                 3. Compare style against human and AI baseline corpora.
                 4. Optionally parse a resume and job description for claim matching.
-                5. Run the multi-agent review crew and apply output guardrails.
+                5. Run the LLM review (efficient mode: two calls by default) and apply output guardrails.
+                   Set `CREWAI_MODE=full` in `.env` for the original multi-agent chain (more detail, higher cost).
                 """
             )
 
@@ -826,12 +846,17 @@ def run_analysis_pipeline(
     }
 
     status_box.update(label="⟳ Running agent analysis...", state="running")
-    status_box.write("→ Commit Behavior Agent")
-    status_box.write("→ Code Quality Agent")
-    status_box.write("→ AI Usage Agent")
-    if resume_data is not None:
-        status_box.write("→ Resume Match Agent")
-    status_box.write("→ Judge Agent")
+    crew_mode = (os.getenv("CREWAI_MODE") or "efficient").strip().lower()
+    if crew_mode == "full":
+        status_box.write("→ Commit Behavior Agent")
+        status_box.write("→ Code Quality Agent")
+        status_box.write("→ AI Usage Agent")
+        if resume_data is not None:
+            status_box.write("→ Resume Match Agent")
+        status_box.write("→ Judge Agent")
+    else:
+        status_box.write("→ Unified analyst (single LLM pass; resume included if uploaded)")
+        status_box.write("→ Judge (verdict synthesis)")
 
     crew_result = CodeLensCrew(analysis_data).run_with_reports()
     verdict = output_filter.filter_verdict(crew_result["verdict"])
@@ -1223,33 +1248,41 @@ def render_analyze_tab() -> None:
         if not github_url.strip():
             st.error("Please enter a GitHub repository URL to analyze.")
         else:
-            try:
-                with st.status("Starting analysis...", expanded=True) as status_box:
-                    result = run_analysis_pipeline(
-                        github_url=github_url.strip(),
-                        uploaded_file=uploaded_file,
-                        job_description=job_description,
-                        company_github_url=company_github_url.strip(),
-                        status_box=status_box,
-                    )
-                st.session_state["last_result"] = result
-                st.session_state["last_error"] = None
-                save_analysis_to_history(
-                    result=result,
-                    github_url=github_url.strip(),
-                    had_resume=uploaded_file is not None,
-                    had_jd=bool(job_description.strip()),
+            wait = _analysis_cooldown_seconds_remaining()
+            if wait is not None:
+                st.warning(
+                    f"Analysis cooldown: wait {int(wait) + 1}s before starting another run "
+                    f"(set CODELENS_ANALYSIS_COOLDOWN_SECONDS=0 in `.env` to disable)."
                 )
-            except Exception as exc:
-                st.session_state["last_result"] = None
-                detail = format_exception_for_user(exc)
-                st.session_state["last_error"] = {
-                    "message": "Analysis could not be completed. Please review the inputs and try again.",
-                    "details": detail,
-                }
-                st.error(st.session_state["last_error"]["message"])
-                with st.expander("Details"):
-                    st.code(detail, language="text")
+            else:
+                st.session_state["_last_analysis_started_ts"] = time.time()
+                try:
+                    with st.status("Starting analysis...", expanded=True) as status_box:
+                        result = run_analysis_pipeline(
+                            github_url=github_url.strip(),
+                            uploaded_file=uploaded_file,
+                            job_description=job_description,
+                            company_github_url=company_github_url.strip(),
+                            status_box=status_box,
+                        )
+                    st.session_state["last_result"] = result
+                    st.session_state["last_error"] = None
+                    save_analysis_to_history(
+                        result=result,
+                        github_url=github_url.strip(),
+                        had_resume=uploaded_file is not None,
+                        had_jd=bool(job_description.strip()),
+                    )
+                except Exception as exc:
+                    st.session_state["last_result"] = None
+                    detail = format_exception_for_user(exc)
+                    st.session_state["last_error"] = {
+                        "message": "Analysis could not be completed. Please review the inputs and try again.",
+                        "details": detail,
+                    }
+                    st.error(st.session_state["last_error"]["message"])
+                    with st.expander("Details"):
+                        st.code(detail, language="text")
 
     if st.session_state.get("last_result"):
         render_results(st.session_state["last_result"])

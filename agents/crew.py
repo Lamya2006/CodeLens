@@ -141,15 +141,30 @@ def _truncate_resume_and_matches(data: dict[str, Any], max_resume: int, max_blob
                     item[ik] = _truncate_str(iv, max_blob, ik)
 
 
+def _crew_mode() -> str:
+    m = (os.getenv("CREWAI_MODE") or "efficient").strip().lower()
+    if m == "full":
+        return "full"
+    return "efficient"
+
+
+def _crew_int_env(name: str, *, full_default: str, efficient_default: str) -> int:
+    """Use tighter defaults in efficient mode unless the user set the variable explicitly."""
+    raw = os.getenv(name)
+    if raw is not None and str(raw).strip() != "":
+        return int(raw)
+    return int(efficient_default if _crew_mode() == "efficient" else full_default)
+
+
 def compact_analysis_data_for_llm(data: dict[str, Any]) -> dict[str, Any]:
     """Shrink repo analysis dict so CrewAI prompts stay under provider input limits (~8MB)."""
-    budget = int(os.getenv("CREW_MAX_ANALYSIS_JSON_BYTES", "5500000"))
-    max_files = int(os.getenv("CREW_MAX_FILES", "48"))
-    max_file_chars = int(os.getenv("CREW_MAX_FILE_CONTENT_CHARS", "9500"))
-    max_commit_msg = int(os.getenv("CREW_MAX_COMMIT_MESSAGE_CHARS", "1500"))
-    kg_list_cap = int(os.getenv("CREW_MAX_KG_LIST_ITEMS", "220"))
-    max_resume = int(os.getenv("CREW_MAX_RESUME_TEXT_CHARS", "48000"))
-    max_match_blob = int(os.getenv("CREW_MAX_MATCH_FIELD_CHARS", "12000"))
+    budget = _crew_int_env("CREW_MAX_ANALYSIS_JSON_BYTES", full_default="5500000", efficient_default="4200000")
+    max_files = _crew_int_env("CREW_MAX_FILES", full_default="48", efficient_default="28")
+    max_file_chars = _crew_int_env("CREW_MAX_FILE_CONTENT_CHARS", full_default="9500", efficient_default="6500")
+    max_commit_msg = _crew_int_env("CREW_MAX_COMMIT_MESSAGE_CHARS", full_default="1500", efficient_default="1200")
+    kg_list_cap = _crew_int_env("CREW_MAX_KG_LIST_ITEMS", full_default="220", efficient_default="140")
+    max_resume = _crew_int_env("CREW_MAX_RESUME_TEXT_CHARS", full_default="48000", efficient_default="32000")
+    max_match_blob = _crew_int_env("CREW_MAX_MATCH_FIELD_CHARS", full_default="12000", efficient_default="8000")
 
     last_compact: dict[str, Any] | None = None
     for attempt in range(8):
@@ -201,11 +216,11 @@ def compact_analysis_data_for_llm(data: dict[str, Any]) -> dict[str, Any]:
 
 
 llm = LLM(
-    model=os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4"),
+    model=os.getenv("OPENROUTER_MODEL", "openrouter/google/gemma-4-26b-a4b-it"),
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-    # OpenRouter 402: lower OPENROUTER_MAX_TOKENS if balance is low vs. large prompts.
-    max_tokens=_env_int("OPENROUTER_MAX_TOKENS", 4096),
+    # Default 2048 reduces cost vs 4096; raise OPENROUTER_MAX_TOKENS if JSON gets truncated.
+    max_tokens=_env_int("OPENROUTER_MAX_TOKENS", 2048),
 )
 
 
@@ -297,6 +312,15 @@ class ResumeMatchOutput(BaseModel):
     summary: str
 
 
+class EfficientAnalystOutput(BaseModel):
+    """Single-call bundle for CREWAI_MODE=efficient (fewer API round-trips)."""
+
+    commit_behavior: CommitBehaviorOutput
+    code_quality: CodeQualityOutput
+    ai_usage: AIUsageOutput
+    resume_match: ResumeMatchOutput | None = None
+
+
 class JudgeOutput(BaseModel):
     overall_quality_score: int
     ai_usage_score: int
@@ -322,9 +346,21 @@ class CodeLensCrew:
     """Run the multi-agent CodeLens evaluation workflow."""
 
     def __init__(self, analysis_data: dict[str, Any]) -> None:
+        self._crew_mode_flag = _crew_mode()
         self.analysis_data = compact_analysis_data_for_llm(analysis_data)
         self.analysis_json = json.dumps(self.analysis_data, indent=2, default=str)
 
+        self.unified_analyst_agent = Agent(
+            role="Principal Staff Engineer",
+            goal="Deliver commit, code quality, AI-usage, and optional resume assessments in one structured pass.",
+            backstory=(
+                "You output concise, evidence-based JSON. Keep prose fields short; cap open-ended lists "
+                "reasonably so the response stays compact."
+            ),
+            llm=llm,
+            allow_delegation=False,
+            verbose=False,
+        )
         self.commit_behavior_agent = Agent(
             role="Senior Engineering Manager",
             goal="Analyze commit behavior and development patterns.",
@@ -389,6 +425,8 @@ class CodeLensCrew:
         return reports["verdict"]
 
     def run_with_reports(self) -> dict[str, Any]:
+        if self._crew_mode_flag == "efficient":
+            return self._run_efficient_crew()
         tasks, agents, report_names = self._build_execution_plan()
         crew = Crew(
             agents=agents,
@@ -405,6 +443,100 @@ class CodeLensCrew:
 
         final_verdict = reports.get("judge") or self._coerce_result(result)
         return {"verdict": final_verdict, "reports": reports}
+
+    def _run_efficient_crew(self) -> dict[str, Any]:
+        """Two LLM calls: unified analyst + judge (vs. 4–5 sequential specialist calls)."""
+        resume_ok = self.analysis_data.get("resume_data") is not None
+        analyst_task = Task(
+            description=self._efficient_analyst_task_description(include_resume=resume_ok),
+            expected_output="One JSON object with nested commit_behavior, code_quality, ai_usage, optional resume_match.",
+            agent=self.unified_analyst_agent,
+            output_json=EfficientAnalystOutput,
+        )
+        judge_task = Task(
+            description=self._judge_task_description(resume_enabled=resume_ok),
+            expected_output="A JSON object exactly matching the requested final verdict schema.",
+            agent=self.judge_agent,
+            context=[analyst_task],
+            output_json=JudgeOutput,
+        )
+        crew = Crew(
+            agents=[self.unified_analyst_agent, self.judge_agent],
+            tasks=[analyst_task, judge_task],
+            process=Process.sequential,
+            verbose=False,
+        )
+        result = crew.kickoff()
+        task_outputs = getattr(result, "tasks_output", []) or []
+        reports: dict[str, Any] = {}
+        if len(task_outputs) >= 1:
+            bundle = self._coerce_task_output(task_outputs[0])
+            if isinstance(bundle, dict):
+                reports["commit_behavior"] = bundle.get("commit_behavior") or {}
+                reports["code_quality"] = bundle.get("code_quality") or {}
+                reports["ai_usage"] = bundle.get("ai_usage") or {}
+                rm = bundle.get("resume_match")
+                if rm is not None:
+                    reports["resume_match"] = rm
+        final_verdict: dict[str, Any]
+        if len(task_outputs) >= 2:
+            final_verdict = self._coerce_task_output(task_outputs[1])
+        else:
+            final_verdict = reports.get("judge") or self._coerce_result(result)
+        return {"verdict": final_verdict, "reports": reports}
+
+    def _efficient_analyst_task_description(self, *, include_resume: bool) -> str:
+        resume_line = (
+            "Include a populated `resume_match` object using resume_data, skill_matches, and project_matches.\n"
+            if include_resume
+            else "Set `resume_match` to null (no resume was provided).\n"
+        )
+        return (
+            "Produce ONE JSON object matching the schema with nested fields: "
+            "commit_behavior, code_quality, ai_usage"
+            f"{', resume_match' if include_resume else ' (resume_match null)'}.\n\n"
+            "Cover in order: (1) commits and commit_patterns vs repo_metadata, (2) code quality from files + "
+            "knowledge_graph, (3) AI usage vs baseline_comparison and code, "
+            f"{'(4) resume claims vs code evidence. ' if include_resume else ''}"
+            "Keep string fields concise; limit open-ended lists to what is most informative.\n\n"
+            f"{resume_line}\n"
+            "Analysis data:\n"
+            f"{self.analysis_json}"
+        )
+
+    def _analysis_summary_for_judge(self) -> str:
+        """Metadata and job/resume context for the judge — not full file bodies (saves input tokens)."""
+        d = self.analysis_data
+        files = d.get("files") or []
+        overview: list[dict[str, Any]] = []
+        if isinstance(files, list):
+            for f in files[: min(60, len(files))]:
+                if not isinstance(f, dict):
+                    continue
+                overview.append(
+                    {
+                        "path": f.get("path") or f.get("file") or "",
+                        "line_count": f.get("line_count", 0),
+                    }
+                )
+        kg = d.get("knowledge_graph")
+        kg_note = None
+        if isinstance(kg, dict):
+            kg_note = kg.get("note") or kg.get("warning") or kg.get("fallback_mode")
+        summary: dict[str, Any] = {
+            "repo_metadata": d.get("repo_metadata"),
+            "commit_patterns": d.get("commit_patterns"),
+            "baseline_comparison": d.get("baseline_comparison"),
+            "resume_data": d.get("resume_data"),
+            "skill_matches": d.get("skill_matches"),
+            "project_matches": d.get("project_matches"),
+            "job_description": d.get("job_description"),
+            "company_style_summary": d.get("company_style_summary"),
+            "files_overview": overview,
+            "knowledge_graph_hint": kg_note,
+            "_llm_payload_note": d.get("_llm_payload_note"),
+        }
+        return json.dumps(summary, indent=2, default=str)
 
     def _build_execution_plan(self) -> tuple[list[Task], list[Agent], list[str]]:
         commit_task = Task(
@@ -589,6 +721,8 @@ class CodeLensCrew:
             f"{job_instruction}"
             f"{company_style_instruction}"
             "For skill_map, map skills to confirmed, partial, or not_found based on the available evidence.\n"
+            "Prior task JSON outputs are your primary evidence; use the supplementary block only for job/resume/metadata context.\n"
             "Return only JSON matching the schema.\n\n"
-            f"Analysis data:\n{self.analysis_json}"
+            "Supplementary context (metadata, job, resume, file overview — not full source):\n"
+            f"{self._analysis_summary_for_judge()}"
         )
