@@ -131,18 +131,18 @@ def apply_global_styles() -> None:
         """
         <style>
             :root {
-                --bg: #0d0d0d;
-                --surface: #141414;
-                --surface-2: #1a1a1a;
-                --border: #2a2a2a;
-                --border-hover: #3a3a3a;
-                --accent: #00ff88;
-                --accent-2: #7c3aed;
-                --danger: #ff4444;
-                --warning: #ffaa00;
-                --text: #e8e8e8;
-                --text-secondary: #888888;
-                --text-muted: #555555;
+                --bg: #fdf5e4;
+                --surface: #f6ebd5;
+                --surface-2: #fffaf0;
+                --border: #ddc6a8;
+                --border-hover: #c7ac89;
+                --accent: #435e94;
+                --accent-2: #f2b25e;
+                --danger: #c04b4b;
+                --warning: #f2b25e;
+                --text: #2f2418;
+                --text-secondary: #7b6753;
+                --text-muted: #9a8266;
             }
 
             html, body, [class*="css"] {
@@ -150,7 +150,9 @@ def apply_global_styles() -> None:
             }
 
             .stApp {
-                background: var(--bg);
+                background:
+                    radial-gradient(circle at top, rgba(242, 178, 94, 0.22), transparent 34%),
+                    linear-gradient(180deg, #fdf5e4 0%, #f8eedb 100%);
                 color: var(--text);
             }
 
@@ -160,7 +162,7 @@ def apply_global_styles() -> None:
             }
 
             [data-testid="stHeader"] {
-                background: rgba(13, 13, 13, 0.96);
+                background: rgba(253, 245, 228, 0.96);
                 border-bottom: 1px solid var(--border);
             }
 
@@ -201,7 +203,7 @@ def apply_global_styles() -> None:
 
             .stButton > button[kind="primary"] {
                 background: var(--accent) !important;
-                color: #07110b !important;
+                color: #fdf5e4 !important;
                 border: 1px solid var(--accent) !important;
                 font-weight: 700 !important;
                 min-height: 48px;
@@ -210,6 +212,7 @@ def apply_global_styles() -> None:
             .stButton > button:hover {
                 border-color: var(--border-hover);
                 color: var(--text);
+                background: #f8f0e0;
             }
 
             [data-testid="stTabs"] button {
@@ -228,6 +231,7 @@ def apply_global_styles() -> None:
                 border: 1px solid var(--border);
                 border-radius: 16px;
                 padding: 16px 18px;
+                box-shadow: 0 12px 28px rgba(67, 94, 148, 0.08);
             }
 
             .score-card {
@@ -236,6 +240,7 @@ def apply_global_styles() -> None:
                 border-radius: 16px;
                 padding: 18px;
                 min-height: 132px;
+                box-shadow: 0 10px 24px rgba(192, 75, 75, 0.06);
             }
 
             .score-label {
@@ -268,12 +273,12 @@ def apply_global_styles() -> None:
                 border: 1px solid var(--border);
             }
 
-            .badge-green { background: rgba(0,255,136,0.10); color: var(--accent); }
-            .badge-purple { background: rgba(124,58,237,0.12); color: #b794f6; }
-            .badge-red { background: rgba(255,68,68,0.12); color: var(--danger); }
-            .badge-yellow { background: rgba(255,170,0,0.12); color: var(--warning); }
-            .badge-blue { background: rgba(68,170,255,0.12); color: #44aaff; }
-            .badge-gray { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+            .badge-green { background: rgba(67, 94, 148, 0.12); color: var(--accent); }
+            .badge-purple { background: rgba(221, 198, 168, 0.45); color: #8c6d4e; }
+            .badge-red { background: rgba(192, 75, 75, 0.12); color: var(--danger); }
+            .badge-yellow { background: rgba(242, 178, 94, 0.18); color: #9b6518; }
+            .badge-blue { background: rgba(67, 94, 148, 0.12); color: var(--accent); }
+            .badge-gray { background: rgba(221, 198, 168, 0.28); color: var(--text-secondary); }
 
             .section-title {
                 font-size: 1rem;
@@ -283,7 +288,7 @@ def apply_global_styles() -> None:
 
             .list-item {
                 padding: 10px 0;
-                border-bottom: 1px solid rgba(255,255,255,0.04);
+                border-bottom: 1px solid rgba(221, 198, 168, 0.55);
                 color: var(--text);
             }
 
@@ -299,7 +304,7 @@ def apply_global_styles() -> None:
             }
 
             .summary-box {
-                background: linear-gradient(180deg, rgba(20,20,20,0.95) 0%, rgba(26,26,26,0.95) 100%);
+                background: linear-gradient(180deg, rgba(255, 250, 240, 0.98) 0%, rgba(246, 235, 213, 0.98) 100%);
                 border: 1px solid var(--border);
                 border-radius: 16px;
                 padding: 18px;
@@ -325,9 +330,9 @@ def apply_global_styles() -> None:
                 gap: 10px;
                 padding: 12px 14px;
                 border-radius: 12px;
-                border: 1px solid #3b3f44;
-                background: #24292e;
-                color: #ffffff !important;
+                border: 1px solid var(--border);
+                background: linear-gradient(135deg, #435e94 0%, #5f79ad 100%);
+                color: #fdf5e4 !important;
                 font-weight: 600;
                 text-decoration: none;
                 width: 100%;
@@ -335,9 +340,9 @@ def apply_global_styles() -> None:
             }
 
             .oauth-button:hover {
-                border-color: #4b525a;
+                border-color: #435e94;
                 text-decoration: none;
-                color: #ffffff !important;
+                color: #fdf5e4 !important;
             }
         </style>
         """,
@@ -368,12 +373,12 @@ def oauth_redirect_uri() -> str:
 
 def score_color(score: int | None) -> str:
     if score is None:
-        return "#888888"
+        return "#7b6753"
     if score > 75:
-        return "#00ff88"
+        return "#435E94"
     if score >= 50:
-        return "#ffaa00"
-    return "#ff4444"
+        return "#F2B25E"
+    return "#C04B4B"
 
 
 def recommendation_badge_color(value: str) -> str:
@@ -607,7 +612,7 @@ def render_app_header() -> None:
         """
         <div style="margin-bottom: 18px;">
             <div class="logo-mark">CodeLens</div>
-            <div style="color:#888888; margin-top:6px;">Intelligent code review for technical hiring.</div>
+            <div style="color:var(--text-secondary); margin-top:6px;">Intelligent code review for technical hiring.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -883,7 +888,7 @@ def run_analysis_pipeline(
 
 def render_score_card(title: str, score: int | None, meta: str = "", muted: bool = False) -> None:
     score_display = "N/A" if score is None else str(score)
-    color = "#888888" if muted else score_color(score)
+    color = "#7b6753" if muted else score_color(score)
     st.markdown(
         f"""
         <div class="score-card">
@@ -948,7 +953,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
         <div class="panel">
             <table style="width:100%; border-collapse:collapse;">
                 <thead>
-                    <tr><th style="text-align:left; color:#888888;">Skill</th><th style="text-align:left; color:#888888;">Status</th></tr>
+                    <tr><th style="text-align:left; color:var(--text-secondary);">Skill</th><th style="text-align:left; color:var(--text-secondary);">Status</th></tr>
                 </thead>
                 <tbody>{''.join(rows)}</tbody>
             </table>
@@ -972,7 +977,7 @@ def render_ai_usage(result: dict[str, Any]) -> None:
     flags = verdict.get("vibe_coding_flags", [])
     if flags:
         for flag in flags:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #ffaa00; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="panel" style="border-left:4px solid #F2B25E; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="muted">No vibe-coding flags triggered.</div>', unsafe_allow_html=True)
 
@@ -997,7 +1002,7 @@ def render_ai_usage(result: dict[str, Any]) -> None:
     good_examples = ai_report.get("good_ai_usage", [])
     if good_examples:
         for item in good_examples:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #00ff88; margin-bottom:8px;">{item}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="panel" style="border-left:4px solid #435E94; margin-bottom:8px;">{item}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="muted">No explicit good-AI examples were surfaced.</div>', unsafe_allow_html=True)
 
@@ -1080,7 +1085,7 @@ def render_resume_panel(result: dict[str, Any]) -> None:
     st.markdown("**Resume Inflation Flags**")
     if inflation_flags:
         for flag in inflation_flags:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #ff4444; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="panel" style="border-left:4px solid #C04B4B; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="muted">No resume inflation flags were raised.</div>', unsafe_allow_html=True)
 
@@ -1124,7 +1129,7 @@ def render_job_fit_panel(result: dict[str, Any]) -> None:
             <div class="panel" style="margin-top:12px;">
                 <div class="section-title">Required Skills Comparison</div>
                 <table style="width:100%; border-collapse:collapse;">
-                    <thead><tr><th style="text-align:left; color:#888888;">Skill</th><th style="text-align:left; color:#888888;">Evidence</th></tr></thead>
+                    <thead><tr><th style="text-align:left; color:var(--text-secondary);">Skill</th><th style="text-align:left; color:var(--text-secondary);">Evidence</th></tr></thead>
                     <tbody>{''.join(rows)}</tbody>
                 </table>
             </div>
@@ -1203,7 +1208,7 @@ def render_metric_card(title: str, value: str) -> None:
         f"""
         <div class="score-card">
             <div class="score-label">{title}</div>
-            <div class="score-value" style="color:#00ff88;">{value}</div>
+            <div class="score-value" style="color:#435E94;">{value}</div>
         </div>
         """,
         unsafe_allow_html=True,

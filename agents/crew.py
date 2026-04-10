@@ -216,7 +216,7 @@ def compact_analysis_data_for_llm(data: dict[str, Any]) -> dict[str, Any]:
 
 
 llm = LLM(
-    model=os.getenv("OPENROUTER_MODEL", "openrouter/google/gemma-4-26b-a4b-it"),
+    model=os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-opus-4.6"),
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
     # Default 2048 reduces cost vs 4096; raise OPENROUTER_MAX_TOKENS if JSON gets truncated.
