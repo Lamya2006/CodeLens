@@ -216,12 +216,59 @@ def compact_analysis_data_for_llm(data: dict[str, Any]) -> dict[str, Any]:
 
 
 llm = LLM(
-    model=os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-opus-4.6"),
+    model=os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4"),
     api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
     # Default 2048 reduces cost vs 4096; raise OPENROUTER_MAX_TOKENS if JSON gets truncated.
     max_tokens=_env_int("OPENROUTER_MAX_TOKENS", 2048),
 )
+
+
+def _strict_json_mode() -> bool:
+    """
+    Use CrewAI's strict JSON schema mode only when the active model/provider can handle it.
+
+    Claude Opus 4.6 via the current OpenRouter provider path can reject large compiled grammars
+    generated from nested Pydantic schemas, so we fall back to prompt-only JSON for that model.
+    Override with CREW_STRICT_JSON=1 or CREW_STRICT_JSON=0 if needed.
+    """
+    override = (os.getenv("CREW_STRICT_JSON") or "").strip().lower()
+    if override in {"1", "true", "yes", "on"}:
+        return True
+    if override in {"0", "false", "no", "off"}:
+        return False
+    model_name = (os.getenv("OPENROUTER_MODEL") or "").strip().lower()
+    return "claude-opus-4.6" not in model_name and "claude-sonnet-4" not in model_name
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("Model output did not contain a valid JSON object.")
+    return json.loads(stripped[start : end + 1])
+
+
+def _avg_int(values: list[Any]) -> int | None:
+    nums = [int(v) for v in values if isinstance(v, int)]
+    if not nums:
+        return None
+    return round(sum(nums) / len(nums))
 
 
 class SuspiciousPattern(BaseModel):
@@ -347,6 +394,7 @@ class CodeLensCrew:
 
     def __init__(self, analysis_data: dict[str, Any]) -> None:
         self._crew_mode_flag = _crew_mode()
+        self._strict_json = _strict_json_mode()
         self.analysis_data = compact_analysis_data_for_llm(analysis_data)
         self.analysis_json = json.dumps(self.analysis_data, indent=2, default=str)
 
@@ -424,6 +472,11 @@ class CodeLensCrew:
         reports = self.run_with_reports()
         return reports["verdict"]
 
+    def _task_output_kwargs(self, schema_model: type[BaseModel]) -> dict[str, Any]:
+        if self._strict_json:
+            return {"output_json": schema_model}
+        return {}
+
     def run_with_reports(self) -> dict[str, Any]:
         if self._crew_mode_flag == "efficient":
             return self._run_efficient_crew()
@@ -442,6 +495,7 @@ class CodeLensCrew:
             reports[name] = self._coerce_task_output(task_output)
 
         final_verdict = reports.get("judge") or self._coerce_result(result)
+        final_verdict = self._normalize_verdict(final_verdict, reports)
         return {"verdict": final_verdict, "reports": reports}
 
     def _run_efficient_crew(self) -> dict[str, Any]:
@@ -451,14 +505,14 @@ class CodeLensCrew:
             description=self._efficient_analyst_task_description(include_resume=resume_ok),
             expected_output="One JSON object with nested commit_behavior, code_quality, ai_usage, optional resume_match.",
             agent=self.unified_analyst_agent,
-            output_json=EfficientAnalystOutput,
+            **self._task_output_kwargs(EfficientAnalystOutput),
         )
         judge_task = Task(
             description=self._judge_task_description(resume_enabled=resume_ok),
             expected_output="A JSON object exactly matching the requested final verdict schema.",
             agent=self.judge_agent,
             context=[analyst_task],
-            output_json=JudgeOutput,
+            **self._task_output_kwargs(JudgeOutput),
         )
         crew = Crew(
             agents=[self.unified_analyst_agent, self.judge_agent],
@@ -483,7 +537,163 @@ class CodeLensCrew:
             final_verdict = self._coerce_task_output(task_outputs[1])
         else:
             final_verdict = reports.get("judge") or self._coerce_result(result)
+        final_verdict = self._normalize_verdict(final_verdict, reports)
         return {"verdict": final_verdict, "reports": reports}
+
+    def _normalize_verdict(self, verdict: dict[str, Any], reports: dict[str, Any]) -> dict[str, Any]:
+        out = dict(verdict) if isinstance(verdict, dict) else {}
+        commit_report = reports.get("commit_behavior") or {}
+        quality_report = reports.get("code_quality") or {}
+        ai_report = reports.get("ai_usage") or {}
+        resume_report = reports.get("resume_match") or {}
+
+        if not isinstance(out.get("commit_health_score"), int):
+            out["commit_health_score"] = commit_report.get("commit_health_score")
+        if not isinstance(out.get("ai_usage_score"), int):
+            out["ai_usage_score"] = ai_report.get("ai_usage_score")
+        if not isinstance(out.get("resume_match_score"), int) and self.analysis_data.get("resume_data") is not None:
+            out["resume_match_score"] = resume_report.get("resume_match_score")
+        if self.analysis_data.get("resume_data") is None:
+            out["resume_match_score"] = None
+
+        if not isinstance(out.get("overall_quality_score"), int):
+            out["overall_quality_score"] = _avg_int(
+                [
+                    quality_report.get("quality_score"),
+                    out.get("commit_health_score"),
+                    out.get("ai_usage_score"),
+                ]
+            )
+
+        if not isinstance(out.get("strengths"), list):
+            strengths = []
+            for item in quality_report.get("strengths", []):
+                if isinstance(item, dict):
+                    obs = item.get("observation")
+                    if isinstance(obs, str) and obs.strip():
+                        strengths.append(obs.strip())
+                elif isinstance(item, str) and item.strip():
+                    strengths.append(item.strip())
+            out["strengths"] = strengths[:5]
+
+        if not isinstance(out.get("concerns"), list):
+            concerns = []
+            for item in quality_report.get("concerns", []):
+                if isinstance(item, dict):
+                    issue = item.get("issue")
+                    if isinstance(issue, str) and issue.strip():
+                        concerns.append(issue.strip())
+                elif isinstance(item, str) and item.strip():
+                    concerns.append(item.strip())
+            out["concerns"] = concerns[:5]
+
+        if not isinstance(out.get("bugs_found"), list):
+            bugs = []
+            for item in quality_report.get("bugs_or_errors", []):
+                if isinstance(item, dict):
+                    desc = item.get("description")
+                    if isinstance(desc, str) and desc.strip():
+                        bugs.append(desc.strip())
+                elif isinstance(item, str) and item.strip():
+                    bugs.append(item.strip())
+            out["bugs_found"] = bugs[:5]
+
+        if not isinstance(out.get("resume_inflation_flags"), list):
+            flags = resume_report.get("inflation_flags")
+            out["resume_inflation_flags"] = flags if isinstance(flags, list) else []
+
+        if not isinstance(out.get("skill_map"), dict):
+            skill_map: dict[str, str] = {}
+            for item in resume_report.get("skill_verdicts", []):
+                if not isinstance(item, dict):
+                    continue
+                skill = item.get("skill")
+                verdict_value = item.get("verdict")
+                if not isinstance(skill, str) or not skill.strip():
+                    continue
+                normalized = "partial"
+                if isinstance(verdict_value, str):
+                    lowered = verdict_value.strip().lower()
+                    if lowered in {"confirmed", "partial", "not_found"}:
+                        normalized = lowered
+                    elif lowered in {"unsubstantiated", "missing", "none"}:
+                        normalized = "not_found"
+                    elif lowered in {"strong", "yes"}:
+                        normalized = "confirmed"
+                skill_map[skill.strip()] = normalized
+            out["skill_map"] = skill_map
+
+        if not isinstance(out.get("vibe_coding_flags"), list):
+            flags = ai_report.get("vibe_coding_flags")
+            out["vibe_coding_flags"] = flags if isinstance(flags, list) else []
+
+        if not isinstance(out.get("ai_usage_summary"), str) or not out.get("ai_usage_summary", "").strip():
+            out["ai_usage_summary"] = ai_report.get("summary") or "AI-usage analysis completed with limited detail."
+
+        if self.analysis_data.get("job_description") is None:
+            out["job_fit_score"] = None
+            out["job_fit_analysis"] = None
+        else:
+            if "job_fit_score" not in out:
+                out["job_fit_score"] = None
+            if not isinstance(out.get("job_fit_analysis"), str):
+                out["job_fit_analysis"] = None
+
+        if self.analysis_data.get("company_style_summary") is None:
+            out["company_style_fit"] = None
+        elif "company_style_fit" not in out:
+            out["company_style_fit"] = None
+
+        valid_recommendations = {"strong_hire", "hire", "maybe", "pass"}
+        recommendation = out.get("recommendation")
+        if recommendation not in valid_recommendations:
+            overall = out.get("overall_quality_score")
+            if isinstance(overall, int):
+                if overall >= 85:
+                    recommendation = "strong_hire"
+                elif overall >= 70:
+                    recommendation = "hire"
+                elif overall >= 50:
+                    recommendation = "maybe"
+                else:
+                    recommendation = "pass"
+            else:
+                recommendation = "maybe"
+            out["recommendation"] = recommendation
+
+        if not isinstance(out.get("recommendation_reasoning"), str) or not out.get("recommendation_reasoning", "").strip():
+            reasons = []
+            if quality_report.get("summary"):
+                reasons.append(str(quality_report["summary"]).strip())
+            if commit_report.get("summary"):
+                reasons.append(str(commit_report["summary"]).strip())
+            if ai_report.get("summary"):
+                reasons.append(str(ai_report["summary"]).strip())
+            out["recommendation_reasoning"] = " ".join(r for r in reasons if r)[:1200] or (
+                "Recommendation derived from available code quality, commit history, and AI-usage signals."
+            )
+
+        if not isinstance(out.get("summary"), str) or not out.get("summary", "").strip():
+            overall = out.get("overall_quality_score")
+            recommendation = str(out.get("recommendation", "maybe")).replace("_", " ")
+            parts = []
+            if isinstance(overall, int):
+                parts.append(f"Overall quality scored {overall}/100 with a {recommendation} recommendation.")
+            if quality_report.get("summary"):
+                parts.append(str(quality_report["summary"]).strip())
+            if commit_report.get("summary"):
+                parts.append(str(commit_report["summary"]).strip())
+            if ai_report.get("summary"):
+                parts.append(str(ai_report["summary"]).strip())
+            out["summary"] = " ".join(p for p in parts if p)[:1600] or "Analysis completed with partial structured output."
+
+        if "disclaimer" not in out:
+            out["disclaimer"] = (
+                "CodeLens provides probabilistic signals to assist human judgment. "
+                "All findings should be verified in a technical interview."
+            )
+
+        return out
 
     def _efficient_analyst_task_description(self, *, include_resume: bool) -> str:
         resume_line = (
@@ -543,21 +753,21 @@ class CodeLensCrew:
             description=self._commit_task_description(),
             expected_output="A JSON object exactly matching the requested commit behavior schema.",
             agent=self.commit_behavior_agent,
-            output_json=CommitBehaviorOutput,
+            **self._task_output_kwargs(CommitBehaviorOutput),
         )
         code_quality_task = Task(
             description=self._code_quality_task_description(),
             expected_output="A JSON object exactly matching the requested code quality schema.",
             agent=self.code_quality_agent,
             context=[commit_task],
-            output_json=CodeQualityOutput,
+            **self._task_output_kwargs(CodeQualityOutput),
         )
         ai_usage_task = Task(
             description=self._ai_usage_task_description(),
             expected_output="A JSON object exactly matching the requested AI usage schema.",
             agent=self.ai_usage_agent,
             context=[commit_task, code_quality_task],
-            output_json=AIUsageOutput,
+            **self._task_output_kwargs(AIUsageOutput),
         )
 
         tasks: list[Task] = [commit_task, code_quality_task, ai_usage_task]
@@ -570,7 +780,7 @@ class CodeLensCrew:
                 expected_output="A JSON object exactly matching the requested resume match schema.",
                 agent=self.resume_match_agent,
                 context=[commit_task, code_quality_task, ai_usage_task],
-                output_json=ResumeMatchOutput,
+                **self._task_output_kwargs(ResumeMatchOutput),
             )
             tasks.append(resume_task)
             report_names.append("resume_match")
@@ -584,7 +794,7 @@ class CodeLensCrew:
             expected_output="A JSON object exactly matching the requested final verdict schema.",
             agent=self.judge_agent,
             context=judge_context,
-            output_json=JudgeOutput,
+            **self._task_output_kwargs(JudgeOutput),
         )
         tasks.append(judge_task)
         report_names.append("judge")
@@ -604,7 +814,7 @@ class CodeLensCrew:
         if getattr(task_output, "json_dict", None):
             return task_output.json_dict
         raw = getattr(task_output, "raw", None) or str(task_output)
-        return json.loads(raw)
+        return _extract_json_object(raw)
 
     @staticmethod
     def _coerce_result(result: Any) -> dict[str, Any]:
@@ -615,7 +825,7 @@ class CodeLensCrew:
             if isinstance(result_dict, dict):
                 return result_dict
         raw_output = getattr(result, "raw", None) or str(result)
-        return json.loads(raw_output)
+        return _extract_json_object(raw_output)
 
     def _commit_task_description(self) -> str:
         return (

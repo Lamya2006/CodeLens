@@ -32,11 +32,11 @@ class ResumeParser:
     @staticmethod
     def _openrouter_model_ids() -> list[str]:
         """API model ids (no `openrouter/` prefix). Honors OPENROUTER_MODEL, then fallbacks."""
-        raw = os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-opus-4.6").strip()
+        raw = os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4").strip()
         if raw.startswith("openrouter/"):
             raw = raw[len("openrouter/") :]
-        primary = raw or "anthropic/claude-opus-4.6"
-        fallbacks = ["anthropic/claude-opus-4.6"]
+        primary = raw or "anthropic/claude-sonnet-4"
+        fallbacks = ["anthropic/claude-sonnet-4"]
         ordered: list[str] = []
         for m in [primary, *fallbacks]:
             if m and m not in ordered:

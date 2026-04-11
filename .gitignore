@@ -3,3 +3,4 @@
 
 # Local-only analysis exports (e.g. data/history/*.json) — same idea as .env
 /data/
+.gitnexus
