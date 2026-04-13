@@ -25,6 +25,15 @@ VOYAGE_CHARS_PER_TOKEN_EST
 VOYAGE_MAX_BATCH_ITEMS
 
 ## UI improvement ideas:
+[x] CodeLens logo
+[x] Match cluely.com design for inspo
+[] Add list of workflow steps
+[] Popups with speedometers
+[] Make resume analysis simpler
+[] Add interactive timeline of commits
+[] Add code graph (interactive graph that looks like gitnexus codebase graph or obsidian knowledge to look like)
+[] Deploy on Repl.it and/or Vercel
+
 CodeLens logo
 Make design more colorful - See cluely.com for inspo
 - Overall Quality, AI Usage, Commit Health, etc. to Github style cards (see Latest from our changelog on Github.com)
