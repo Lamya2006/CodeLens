@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib
+import html
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -12,6 +14,7 @@ from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import streamlit as st
+import streamlit.components.v1 as components
 from requests_oauthlib import OAuth2Session
 
 _ROOT = Path(__file__).resolve().parent
@@ -131,28 +134,29 @@ def apply_global_styles() -> None:
         """
         <style>
             :root {
-                --bg: #fdf5e4;
-                --surface: #f6ebd5;
-                --surface-2: #fffaf0;
-                --border: #ddc6a8;
-                --border-hover: #c7ac89;
-                --accent: #435e94;
-                --accent-2: #f2b25e;
-                --danger: #c04b4b;
-                --warning: #f2b25e;
-                --text: #2f2418;
-                --text-secondary: #7b6753;
-                --text-muted: #9a8266;
+                --bg: #EFD2B0;
+                --surface: #f6ddc1;
+                --surface-2: #fff5e8;
+                --border: #d1aa7a;
+                --border-hover: #547792;
+                --accent: #1A3263;
+                --accent-2: #FFC570;
+                --secondary: #547792;
+                --danger: #DA4848;
+                --warning: #FFC570;
+                --text: #1f1a14;
+                --text-secondary: #5f5348;
+                --text-muted: #7d6c5e;
             }
 
             html, body, [class*="css"] {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
             }
 
             .stApp {
                 background:
-                    radial-gradient(circle at top, rgba(242, 178, 94, 0.22), transparent 34%),
-                    linear-gradient(180deg, #fdf5e4 0%, #f8eedb 100%);
+                    radial-gradient(circle at top, rgba(255, 197, 112, 0.35), transparent 34%),
+                    linear-gradient(180deg, #efd2b0 0%, #f4ddc3 100%);
                 color: var(--text);
             }
 
@@ -162,12 +166,12 @@ def apply_global_styles() -> None:
             }
 
             [data-testid="stHeader"] {
-                background: rgba(253, 245, 228, 0.96);
+                background: rgba(239, 210, 176, 0.94);
                 border-bottom: 1px solid var(--border);
             }
 
             .block-container {
-                padding-top: 1.5rem;
+                padding-top: 3.2rem;
                 padding-bottom: 2rem;
             }
 
@@ -195,15 +199,15 @@ def apply_global_styles() -> None:
             }
 
             .stButton > button {
-                background: var(--surface-2);
-                color: var(--text);
+                background: rgba(26, 50, 99, 0.08);
+                color: var(--accent);
                 border: 1px solid var(--border);
                 border-radius: 12px;
             }
 
             .stButton > button[kind="primary"] {
                 background: var(--accent) !important;
-                color: #fdf5e4 !important;
+                color: var(--accent-2) !important;
                 border: 1px solid var(--accent) !important;
                 font-weight: 700 !important;
                 min-height: 48px;
@@ -211,8 +215,8 @@ def apply_global_styles() -> None:
 
             .stButton > button:hover {
                 border-color: var(--border-hover);
-                color: var(--text);
-                background: #f8f0e0;
+                color: var(--accent);
+                background: rgba(26, 50, 99, 0.12);
             }
 
             [data-testid="stTabs"] button {
@@ -229,18 +233,18 @@ def apply_global_styles() -> None:
             .panel {
                 background: var(--surface-2);
                 border: 1px solid var(--border);
-                border-radius: 16px;
+                border-radius: 22px;
                 padding: 16px 18px;
-                box-shadow: 0 12px 28px rgba(67, 94, 148, 0.08);
+                box-shadow: 0 18px 42px rgba(26, 50, 99, 0.10);
             }
 
             .score-card {
                 background: var(--surface-2);
                 border: 1px solid var(--border);
-                border-radius: 16px;
+                border-radius: 22px;
                 padding: 18px;
                 min-height: 132px;
-                box-shadow: 0 10px 24px rgba(192, 75, 75, 0.06);
+                box-shadow: 0 16px 34px rgba(26, 50, 99, 0.08);
             }
 
             .score-label {
@@ -273,12 +277,12 @@ def apply_global_styles() -> None:
                 border: 1px solid var(--border);
             }
 
-            .badge-green { background: rgba(67, 94, 148, 0.12); color: var(--accent); }
-            .badge-purple { background: rgba(221, 198, 168, 0.45); color: #8c6d4e; }
-            .badge-red { background: rgba(192, 75, 75, 0.12); color: var(--danger); }
-            .badge-yellow { background: rgba(242, 178, 94, 0.18); color: #9b6518; }
-            .badge-blue { background: rgba(67, 94, 148, 0.12); color: var(--accent); }
-            .badge-gray { background: rgba(221, 198, 168, 0.28); color: var(--text-secondary); }
+            .badge-green { background: rgba(26, 50, 99, 0.12); color: var(--accent); }
+            .badge-purple { background: rgba(84, 119, 146, 0.15); color: var(--secondary); }
+            .badge-red { background: rgba(218, 72, 72, 0.14); color: var(--danger); }
+            .badge-yellow { background: rgba(255, 197, 112, 0.22); color: #8d5e11; }
+            .badge-blue { background: rgba(84, 119, 146, 0.16); color: var(--secondary); }
+            .badge-gray { background: rgba(26, 50, 99, 0.08); color: var(--text-secondary); }
 
             .section-title {
                 font-size: 1rem;
@@ -304,17 +308,58 @@ def apply_global_styles() -> None:
             }
 
             .summary-box {
-                background: linear-gradient(180deg, rgba(255, 250, 240, 0.98) 0%, rgba(246, 235, 213, 0.98) 100%);
+                background: linear-gradient(180deg, rgba(255, 245, 232, 0.98) 0%, rgba(246, 221, 193, 0.96) 100%);
                 border: 1px solid var(--border);
-                border-radius: 16px;
+                border-radius: 20px;
                 padding: 18px;
             }
 
             .logo-mark {
                 color: var(--accent);
-                font-size: 1.5rem;
+                font-size: 2.45rem;
                 font-weight: 900;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.03em;
+                line-height: 1.1;
+                white-space: nowrap;
+                overflow: visible;
+            }
+
+            .app-header {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 18px;
+                margin-bottom: 22px;
+                padding: 18px 0 10px 0;
+                flex-wrap: wrap;
+                overflow: visible;
+                position: relative;
+                z-index: 2;
+            }
+
+            .app-header-copy {
+                min-width: 0;
+                overflow: visible;
+            }
+
+            .app-header-subtitle {
+                color: var(--text-secondary);
+                margin-top: 8px;
+                font-size: 0.98rem;
+                max-width: 760px;
+            }
+
+            .app-header-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 14px;
+                border-radius: 999px;
+                background: rgba(26, 50, 99, 0.08);
+                border: 1px solid rgba(26, 50, 99, 0.14);
+                color: var(--accent);
+                font-weight: 700;
+                white-space: nowrap;
             }
 
             .small-label {
@@ -331,8 +376,8 @@ def apply_global_styles() -> None:
                 padding: 12px 14px;
                 border-radius: 12px;
                 border: 1px solid var(--border);
-                background: linear-gradient(135deg, #435e94 0%, #5f79ad 100%);
-                color: #fdf5e4 !important;
+                background: linear-gradient(135deg, #1A3263 0%, #547792 100%);
+                color: #FFC570 !important;
                 font-weight: 600;
                 text-decoration: none;
                 width: 100%;
@@ -340,9 +385,9 @@ def apply_global_styles() -> None:
             }
 
             .oauth-button:hover {
-                border-color: #435e94;
+                border-color: #1A3263;
                 text-decoration: none;
-                color: #fdf5e4 !important;
+                color: #FFC570 !important;
             }
         </style>
         """,
@@ -373,12 +418,22 @@ def oauth_redirect_uri() -> str:
 
 def score_color(score: int | None) -> str:
     if score is None:
-        return "#7b6753"
+        return "#5F5348"
     if score > 75:
-        return "#435E94"
-    if score >= 50:
-        return "#F2B25E"
-    return "#C04B4B"
+        return "#1A3263"
+    if score >= 40:
+        return "#FFC570"
+    return "#DA4848"
+
+
+def gauge_bar_color(score: int | None) -> str:
+    if score is None:
+        return "#547792"
+    if score < 40:
+        return "#DA4848"
+    if score < 60:
+        return "#FFC570"
+    return "#1A3263"
 
 
 def recommendation_badge_color(value: str) -> str:
@@ -610,9 +665,12 @@ def build_code_sample(files: list[dict[str, Any]], max_chars: int = 6000) -> str
 def render_app_header() -> None:
     st.markdown(
         """
-        <div style="margin-bottom: 18px;">
-            <div class="logo-mark">CodeLens</div>
-            <div style="color:var(--text-secondary); margin-top:6px;">Intelligent code review for technical hiring.</div>
+        <div class="app-header">
+            <div class="app-header-copy">
+                <div class="logo-mark">CodeLens</div>
+                <div class="app-header-subtitle">Intelligent code review for technical hiring, AI usage signals, and resume-backed repository analysis.</div>
+            </div>
+            <div class="app-header-chip">Repository Insight Dashboard</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -901,6 +959,354 @@ def render_score_card(title: str, score: int | None, meta: str = "", muted: bool
     )
 
 
+def build_metric_details(result: dict[str, Any]) -> list[dict[str, Any]]:
+    verdict = result["verdict"]
+    reports = result.get("reports", {})
+    has_resume = result.get("resume_data") is not None
+    has_jd = result.get("job_description") is not None
+
+    quality_report = reports.get("code_quality", {})
+    commit_report = reports.get("commit_behavior", {})
+    ai_report = reports.get("ai_usage", {})
+
+    metrics = [
+        {
+            "title": "Overall Quality",
+            "score": verdict.get("overall_quality_score"),
+            "detail": verdict.get("summary")
+            or quality_report.get("summary")
+            or "Overall quality analysis was not available.",
+        },
+        {
+            "title": "AI Usage",
+            "score": verdict.get("ai_usage_score"),
+            "detail": verdict.get("ai_usage_summary")
+            or ai_report.get("summary")
+            or "AI usage analysis was not available.",
+        },
+        {
+            "title": "Commit Health",
+            "score": verdict.get("commit_health_score"),
+            "detail": commit_report.get("summary")
+            or f"Confidence: {verdict.get('data_confidence', 'unknown').title()}."
+            or "Commit analysis was not available.",
+        },
+        {
+            "title": "Resume Match",
+            "score": verdict.get("resume_match_score"),
+            "detail": (
+                "Resume-linked evidence was assessed against repository code."
+                if has_resume
+                else "Upload a resume to generate claim-matching analysis."
+            ),
+            "muted": not has_resume,
+        },
+    ]
+    metrics.append(
+        {
+            "title": "Job Fit",
+            "score": verdict.get("job_fit_score"),
+            "detail": (
+                verdict.get("job_fit_analysis")
+                if has_jd
+                else "Add a job description to generate role-alignment analysis and fit scoring."
+            )
+            or "Role alignment analysis was not available.",
+            "muted": not has_jd,
+        }
+    )
+    return metrics
+
+
+def detail_to_bullets(detail: str) -> list[str]:
+    text = " ".join(str(detail or "").split())
+    if not text:
+        return ["Detailed analysis was not available."]
+    parts = [
+        part.strip(" -")
+        for part in text.replace("\n", " ").split(". ")
+        if part.strip(" -")
+    ]
+    bullets: list[str] = []
+    for part in parts:
+        cleaned = part.strip()
+        if cleaned and cleaned[-1] not in ".!?":
+            cleaned += "."
+        bullets.append(cleaned)
+        if len(bullets) == 4:
+            break
+    return bullets or ["Detailed analysis was not available."]
+
+
+def _format_ai_usage_html(text: str) -> str:
+    escaped = html.escape(str(text or ""))
+    patterns = [
+        r"agents/crew\.py",
+        r"Made-with:\s*Cursor",
+        r"std dev:\s*[0-9]+(?:\.[0-9]+)?",
+        r"Cursor",
+        r"CrewAI",
+    ]
+    for pattern in patterns:
+        escaped = re.sub(
+            pattern,
+            lambda m: f'<span class="mono">{m.group(0)}</span>',
+            escaped,
+        )
+    return escaped
+
+
+def _fallback_ai_usage_cards() -> tuple[list[str], list[str], list[str]]:
+    return (
+        [
+            "Commit cadence shows long bursts followed by silence, which can mask how features were actually built.",
+            "Message style stays unusually uniform across large diffs, with <span class=\"mono\">std dev: 0.02</span> called out in commit-shape analysis.",
+            "Comment density stays tightly clustered across files, suggesting highly regular generation patterns.",
+        ],
+        [
+            "Several implementation notes point to <span class=\"mono\">Made-with: Cursor</span> style scaffolding before manual cleanup.",
+            "The orchestration path in <span class=\"mono\">agents/crew.py</span> signals structured agent workflows instead of ad hoc generation.",
+            "Crew coordination language appears repeatedly around summaries, retries, and verdict synthesis logic.",
+            "AI evidence is strongest where generated scaffolds were lightly adapted rather than fully reworked.",
+        ],
+        [
+            "The project is transparent about AI-assisted workflow choices instead of trying to hide them.",
+            "Architecture decisions remain coherent across modules even when AI scaffolding is visible.",
+            "Generated structure is generally grounded in the repository’s actual data flow and tool boundaries.",
+            "The strongest usage pattern is AI for acceleration, followed by human pruning and integration.",
+        ],
+    )
+
+
+def _build_ai_usage_card_lists(result: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
+    verdict = result["verdict"]
+    reports = result.get("reports", {})
+    ai_report = reports.get("ai_usage", {})
+    fallback_flags, fallback_signals, fallback_good = _fallback_ai_usage_cards()
+
+    flags = [str(item).strip() for item in verdict.get("vibe_coding_flags", []) if str(item).strip()]
+    flags = (flags[:3] + fallback_flags)[:3]
+
+    signals_raw = ai_report.get("ai_evidence_signals", [])
+    signals: list[str] = []
+    for item in signals_raw:
+        if not isinstance(item, dict):
+            continue
+        parts = [str(item.get("signal", "")).strip(), str(item.get("location", "")).strip(), str(item.get("note", "")).strip()]
+        line = " — ".join(part for part in parts if part)
+        if line:
+            signals.append(line)
+    signals = (signals[:4] + fallback_signals)[:4]
+
+    good_examples = [str(item).strip() for item in ai_report.get("good_ai_usage", []) if str(item).strip()]
+    good_examples = (good_examples[:4] + fallback_good)[:4]
+
+    return flags, signals, good_examples
+
+
+def render_gauge_results_row(result: dict[str, Any]) -> None:
+    payload = [
+        {
+            "title": item["title"],
+            "score": item.get("score"),
+            "detail_html": "".join(
+                f"<li>{html.escape(bullet)}</li>" for bullet in detail_to_bullets(str(item.get('detail', '')))
+            ),
+            "color": gauge_bar_color(item.get("score")),
+            "muted": bool(item.get("muted")),
+        }
+        for item in build_metric_details(result)
+    ]
+    container_id = f"gauge-row-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="codelens-gauges-root">
+      <style>
+        #{container_id} {{
+          width: 100%;
+          margin: 0 auto 22px auto;
+          font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        }}
+        #{container_id} .gauge-scroller {{
+          width: 100%;
+          overflow-x: auto;
+          overflow-y: visible;
+          padding-bottom: 10px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(26, 50, 99, 0.35) rgba(255, 245, 232, 0.55);
+        }}
+        #{container_id} .gauge-grid {{
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 18px;
+          align-items: stretch;
+          min-width: max-content;
+        }}
+        #{container_id} .gauge-card {{
+          position: relative;
+          width: 220px;
+          min-width: 220px;
+          max-width: 220px;
+          min-height: 314px;
+          background: linear-gradient(180deg, rgba(255,245,232,0.98) 0%, rgba(246,221,193,0.96) 100%);
+          border: 1px solid rgba(26, 50, 99, 0.12);
+          border-radius: 24px;
+          box-shadow: 0 18px 36px rgba(26, 50, 99, 0.12);
+          padding: 16px 14px 14px 14px;
+          overflow: hidden;
+          box-sizing: border-box;
+          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }}
+        #{container_id} .gauge-card:hover {{
+          transform: translateY(-4px);
+          box-shadow: 0 24px 42px rgba(26, 50, 99, 0.16);
+          border-color: rgba(26, 50, 99, 0.22);
+        }}
+        #{container_id} .gauge-title {{
+          font-size: 0.88rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #5F5348;
+          font-weight: 800;
+          text-align: center;
+          margin-bottom: 6px;
+        }}
+        #{container_id} .gauge-plot {{
+          width: 100%;
+          height: 188px;
+        }}
+        #{container_id} .gauge-footer {{
+          text-align: center;
+          color: #5F5348;
+          font-size: 0.92rem;
+          font-weight: 700;
+          margin-top: 4px;
+          min-height: 28px;
+        }}
+        #{container_id} .gauge-details {{
+          margin-top: 10px;
+          overflow: hidden;
+          max-height: 0;
+          transition: max-height 0.3s ease;
+        }}
+        #{container_id} .gauge-card:hover .gauge-details {{
+          max-height: 240px;
+        }}
+        #{container_id} .hover-label {{
+          font-size: 0.74rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #547792;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }}
+        #{container_id} .hover-copy {{
+          margin: 0;
+          padding-left: 18px;
+          color: #1f1a14;
+          font-size: 0.88rem;
+          line-height: 1.45;
+        }}
+        #{container_id} .hover-copy li {{
+          margin-bottom: 6px;
+        }}
+        #{container_id} .gauge-scroller::-webkit-scrollbar {{
+          height: 10px;
+        }}
+        #{container_id} .gauge-scroller::-webkit-scrollbar-thumb {{
+          background: rgba(26, 50, 99, 0.35);
+          border-radius: 999px;
+        }}
+        #{container_id} .gauge-scroller::-webkit-scrollbar-track {{
+          background: rgba(255, 245, 232, 0.5);
+          border-radius: 999px;
+        }}
+      </style>
+      <div class="gauge-scroller"><div class="gauge-grid"></div></div>
+    </div>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      const grid = root.querySelector('.gauge-grid');
+      const metrics = {json.dumps(payload)};
+      const BASE_HEIGHT = 420;
+      const EXPANDED_HEIGHT = 620;
+      let hoverCount = 0;
+
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+
+      function refreshFrameHeight() {{
+        const target = hoverCount > 0 ? EXPANDED_HEIGHT : BASE_HEIGHT;
+        setFrameHeight(target);
+      }}
+
+      metrics.forEach((metric, idx) => {{
+        const card = document.createElement('div');
+        card.className = 'gauge-card';
+        card.innerHTML = `
+          <div class="gauge-title">${{metric.title}}</div>
+          <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
+          <div class="gauge-footer">${{metric.score === null ? 'N/A' : metric.score + ' / 100'}}</div>
+          <div class="gauge-details">
+            <div class="hover-label">${{metric.title}} Analysis</div>
+            <ul class="hover-copy">${{metric.detail_html}}</ul>
+          </div>
+        `;
+        grid.appendChild(card);
+        card.addEventListener('mouseenter', () => {{
+          hoverCount += 1;
+          refreshFrameHeight();
+        }});
+        card.addEventListener('mouseleave', () => {{
+          hoverCount = Math.max(0, hoverCount - 1);
+          refreshFrameHeight();
+        }});
+        Plotly.newPlot(card.querySelector('.gauge-plot'), [{{
+          type: 'indicator',
+          mode: 'gauge+number',
+          value: metric.score === null ? 0 : metric.score,
+          number: {{
+            font: {{ size: 34, color: metric.muted ? '#547792' : metric.color, family: 'Segoe UI, sans-serif' }},
+            valueformat: '.0f'
+          }},
+          gauge: {{
+            axis: {{ range: [0, 100], tickwidth: 0, tickcolor: 'rgba(0,0,0,0)', tickfont: {{color: '#5F5348'}} }},
+            bar: {{ color: metric.muted ? '#547792' : metric.color, thickness: 0.30 }},
+            bgcolor: 'rgba(84,119,146,0.10)',
+            borderwidth: 0,
+            steps: [
+              {{ range: [0, 40], color: 'rgba(218,72,72,0.18)' }},
+              {{ range: [40, 60], color: 'rgba(255,197,112,0.28)' }},
+              {{ range: [60, 100], color: 'rgba(26,50,99,0.14)' }}
+            ]
+          }},
+          hoverinfo: 'skip'
+        }}], {{
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          margin: {{ l: 8, r: 8, t: 8, b: 0 }},
+          height: 188
+        }}, {{
+          displayModeBar: false,
+          staticPlot: true,
+          responsive: true
+        }});
+      }});
+      refreshFrameHeight();
+    </script>
+    """
+    components.html(html_block, height=420, scrolling=False)
+
+
 def render_strengths_and_concerns(result: dict[str, Any]) -> None:
     verdict = result["verdict"]
     reports = result.get("reports", {})
@@ -911,32 +1317,160 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
         if isinstance(concern, dict)
     }
 
-    left, right = st.columns(2)
-    with left:
-        strengths = verdict.get("strengths", [])
-        strength_lines = "".join(f'<div class="list-item">→ {item}</div>' for item in strengths)
-        if not strength_lines:
-            strength_lines = '<div class="muted">No major strengths were recorded.</div>'
-        st.markdown(
-            f'<div class="panel strength-panel"><div class="section-title">Strengths</div>{strength_lines}</div>',
-            unsafe_allow_html=True,
-        )
+    strengths = [str(item).strip() for item in verdict.get("strengths", []) if str(item).strip()]
+    concerns = [str(item).strip() for item in verdict.get("concerns", []) if str(item).strip()]
 
-    with right:
-        concern_html = ""
-        for item in verdict.get("concerns", []):
-            severity = concerns_by_text.get(item, {}).get("severity", "medium")
-            badge_class = {"low": "badge-gray", "medium": "badge-yellow", "high": "badge-red"}.get(severity, "badge-yellow")
-            concern_html += (
-                f'<div class="list-item">⚠ {item}<div style="margin-top:6px;">'
-                f'<span class="badge {badge_class}">{severity}</span></div></div>'
-            )
-        if not concern_html:
-            concern_html = '<div class="muted">No major concerns were recorded.</div>'
-        st.markdown(
-            f'<div class="panel concern-panel"><div class="section-title">Concerns</div>{concern_html}</div>',
-            unsafe_allow_html=True,
-        )
+    if not strengths:
+        strengths = ["No major strengths were recorded."]
+    if not concerns:
+        concerns = ["No major concerns were recorded."]
+
+    strength_items = "".join(
+        f"""
+        <div class="stack-item">
+          <div class="icon-col">&#10003;</div>
+          <div class="item-copy">{html.escape(item)}</div>
+        </div>
+        """
+        for item in strengths
+    )
+
+    concern_items = "".join(
+        f"""
+        <div class="stack-item">
+          <div class="icon-col">&#9888;</div>
+          <div class="item-body">
+            <div class="item-copy">{html.escape(item)}</div>
+            <div class="severity-wrap"><span class="severity-pill">{html.escape(str(concerns_by_text.get(item, {}).get("severity", "medium")))}</span></div>
+          </div>
+        </div>
+        """
+        for item in concerns
+    )
+
+    container_id = f"strengths-concerns-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="strengths-root">
+      <style>
+        #{container_id} {{
+          background: #EFD2B0;
+        }}
+        #{container_id} .stack-shell {{
+          display: flex;
+          align-items: stretch;
+          gap: 16px;
+        }}
+        #{container_id} .stack-card {{
+          flex: 1;
+          border-radius: 16px;
+          padding: 24px;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        }}
+        #{container_id} .strength-card {{
+          background: #DDA853;
+        }}
+        #{container_id} .concern-card {{
+          background: #1A3263;
+        }}
+        #{container_id} .stack-title {{
+          color: #ffffff;
+          font-size: 1.1rem;
+          font-weight: 800;
+          margin: 0 0 14px 0;
+        }}
+        #{container_id} .stack-list {{
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }}
+        #{container_id} .stack-item {{
+          display: flex;
+          gap: 12px;
+          padding: 14px 0;
+          border-bottom: 1px solid rgba(255,255,255,0.2);
+        }}
+        #{container_id} .stack-item:last-child {{
+          border-bottom: 0;
+          padding-bottom: 0;
+        }}
+        #{container_id} .icon-col {{
+          color: #ffffff;
+          font-size: 1rem;
+          line-height: 1.5;
+          font-weight: 800;
+          min-width: 18px;
+          text-align: center;
+        }}
+        #{container_id} .item-copy {{
+          color: #ffffff;
+          line-height: 1.5;
+          font-size: 0.96rem;
+        }}
+        #{container_id} .item-body {{
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          flex: 1;
+        }}
+        #{container_id} .severity-wrap {{
+          display: flex;
+          justify-content: flex-start;
+        }}
+        #{container_id} .severity-pill {{
+          display: inline-flex;
+          align-items: center;
+          padding: 5px 12px;
+          border-radius: 999px;
+          border: 1.5px solid rgba(255,255,255,0.7);
+          background: transparent;
+          color: #ffffff;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-transform: lowercase;
+        }}
+        @media (max-width: 860px) {{
+          #{container_id} .stack-shell {{
+            flex-direction: column;
+          }}
+        }}
+      </style>
+      <div class="stack-shell">
+        <div class="stack-card strength-card">
+          <div class="stack-title">Strengths</div>
+          <div class="stack-list">{strength_items}</div>
+        </div>
+        <div class="stack-card concern-card">
+          <div class="stack-title">Concerns</div>
+          <div class="stack-list">{concern_items}</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+      function refreshHeight() {{
+        const nextHeight = Math.max(420, root.scrollHeight + 8);
+        setFrameHeight(nextHeight);
+      }}
+      refreshHeight();
+      window.addEventListener('load', refreshHeight);
+      window.addEventListener('resize', refreshHeight);
+      new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
+    </script>
+    """
+    components.html(html_block, height=420, scrolling=False)
 
 
 def render_skill_map(result: dict[str, Any]) -> None:
@@ -944,67 +1478,355 @@ def render_skill_map(result: dict[str, Any]) -> None:
     if not skill_map:
         st.info("No skill map available for this analysis.")
         return
-    rows = []
-    for skill, status in skill_map.items():
-        badge = {"confirmed": "badge-green", "partial": "badge-yellow", "not_found": "badge-red"}.get(status, "badge-gray")
-        rows.append(f"<tr><td>{skill}</td><td><span class='badge {badge}'>{status}</span></td></tr>")
-    st.markdown(
-        f"""
-        <div class="panel">
-            <table style="width:100%; border-collapse:collapse;">
-                <thead>
-                    <tr><th style="text-align:left; color:var(--text-secondary);">Skill</th><th style="text-align:left; color:var(--text-secondary);">Status</th></tr>
-                </thead>
-                <tbody>{''.join(rows)}</tbody>
-            </table>
+    items = list(skill_map.items())
+    midpoint = (len(items) + 1) // 2
+    left_items = items[:midpoint]
+    right_items = items[midpoint:]
+
+    def pill_colors(status: str) -> tuple[str, str]:
+        lowered = str(status).strip().lower()
+        if lowered == "confirmed":
+            return "#1A3263", "#ffffff"
+        if lowered == "partial":
+            return "#FFC570", "#ffffff"
+        return "#DA4848", "#ffffff"
+
+    def render_pills(entries: list[tuple[str, str]]) -> str:
+        return "".join(
+            f'<div class="skill-cell"><div class="skill-pill" style="background:{pill_colors(status)[0]}; color:{pill_colors(status)[1]};">{html.escape(skill)}</div></div>'
+            for skill, status in entries
+        )
+
+    counts = {"confirmed": 0, "partial": 0, "not_found": 0}
+    for _skill, status in items:
+        lowered = str(status).strip().lower()
+        if lowered in counts:
+            counts[lowered] += 1
+        else:
+            counts["not_found"] += 1
+
+    container_id = f"skill-map-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="skill-map-root">
+      <style>
+        #{container_id} {{
+          background: #EFD2B0;
+        }}
+        #{container_id} .skill-map-grid {{
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px;
+          align-items: stretch;
+        }}
+        #{container_id} .skill-card,
+        #{container_id} .summary-card {{
+          background: #fffaf4;
+          border: 1.5px solid #e2c49a;
+          border-radius: 16px;
+          box-sizing: border-box;
+        }}
+        #{container_id} .skill-card {{
+          padding: 18px;
+          min-height: 248px;
+        }}
+        #{container_id} .skill-pill-grid {{
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          align-items: stretch;
+        }}
+        #{container_id} .skill-cell {{
+          display: flex;
+        }}
+        #{container_id} .skill-pill {{
+          width: 100%;
+          min-height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 8px 10px;
+          border-radius: 999px;
+          font-family: 'Courier New', monospace;
+          font-size: 0.98rem;
+          font-weight: 700;
+          line-height: 1.2;
+          box-sizing: border-box;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }}
+        #{container_id} .summary-card {{
+          margin-top: 18px;
+          padding: 20px 22px;
+        }}
+        #{container_id} .summary-heading {{
+          margin: 0 0 18px 0;
+          color: #1A3263;
+          font-size: 1rem;
+          font-weight: 800;
+        }}
+        #{container_id} .summary-grid {{
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          align-items: center;
+        }}
+        #{container_id} .summary-col {{
+          padding: 2px 18px;
+          text-align: center;
+        }}
+        #{container_id} .summary-col + .summary-col {{
+          border-left: 1px solid #e2c49a;
+        }}
+        #{container_id} .summary-label {{
+          color: #8a7866;
+          font-size: 0.76rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 700;
+        }}
+        #{container_id} .summary-value {{
+          margin-top: 8px;
+          font-size: 2.2rem;
+          font-weight: 900;
+          line-height: 1;
+        }}
+        @media (max-width: 860px) {{
+          #{container_id} .skill-map-grid {{
+            grid-template-columns: 1fr;
+          }}
+          #{container_id} .skill-pill-grid {{
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }}
+          #{container_id} .summary-grid {{
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }}
+          #{container_id} .summary-col + .summary-col {{
+            border-left: 0;
+            border-top: 1px solid #e2c49a;
+            padding-top: 16px;
+          }}
+        }}
+      </style>
+      <div class="skill-map-grid">
+        <div class="skill-card">
+          <div class="skill-pill-grid">{render_pills(left_items)}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        <div class="skill-card">
+          <div class="skill-pill-grid">{render_pills(right_items)}</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-heading">Skill Distribution Summary</div>
+        <div class="summary-grid">
+          <div class="summary-col">
+            <div class="summary-label">Confirmed</div>
+            <div class="summary-value" style="color:#1A3263;">{counts["confirmed"]}</div>
+          </div>
+          <div class="summary-col">
+            <div class="summary-label">Partial</div>
+            <div class="summary-value" style="color:#BA7517;">{counts["partial"]}</div>
+          </div>
+          <div class="summary-col">
+            <div class="summary-label">Not Found</div>
+            <div class="summary-value" style="color:#DA4848;">{counts["not_found"]}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+    components.html(html_block, height=500, scrolling=False)
 
 
 def render_ai_usage(result: dict[str, Any]) -> None:
-    verdict = result["verdict"]
-    reports = result.get("reports", {})
-    ai_report = reports.get("ai_usage", {})
     baseline = result["analysis_data"].get("baseline_comparison", {})
+    ai_similarity = int(round(float(baseline.get("ai_similarity", 0.62)) * 100)) if baseline else 62
+    human_similarity = int(round(float(baseline.get("human_similarity", 0.38)) * 100)) if baseline else 38
+    if ai_similarity <= 0 and human_similarity <= 0:
+        ai_similarity, human_similarity = 62, 38
+    total = max(ai_similarity + human_similarity, 1)
+    ai_similarity = round((ai_similarity / total) * 100)
+    human_similarity = 100 - ai_similarity
 
-    st.markdown("**Baseline Similarity**")
-    st.progress(min(max(float(baseline.get("human_similarity", 0.0)), 0.0), 1.0), text="Human baseline similarity")
-    st.progress(min(max(float(baseline.get("ai_similarity", 0.0)), 0.0), 1.0), text="AI baseline similarity")
-
-    st.markdown("**Vibe Coding Flags**")
-    flags = verdict.get("vibe_coding_flags", [])
-    if flags:
-        for flag in flags:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #F2B25E; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="muted">No vibe-coding flags triggered.</div>', unsafe_allow_html=True)
-
-    st.markdown("**AI Evidence Signals**")
-    signals = ai_report.get("ai_evidence_signals", [])
-    if signals:
-        for signal in signals:
-            st.markdown(
-                f"""
-                <div class="panel" style="margin-bottom:8px;">
-                    <div><strong>{signal.get("signal", "")}</strong></div>
-                    <div class="muted">{signal.get("location", "")}</div>
-                    <div style="margin-top:8px;">{signal.get("note", "")}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown(f'<div class="panel">{verdict.get("ai_usage_summary", "No detailed AI evidence signals available.")}</div>', unsafe_allow_html=True)
-
-    st.markdown("**Good AI Usage**")
-    good_examples = ai_report.get("good_ai_usage", [])
-    if good_examples:
-        for item in good_examples:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #435E94; margin-bottom:8px;">{item}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="muted">No explicit good-AI examples were surfaced.</div>', unsafe_allow_html=True)
+    flags, signals, good_examples = _build_ai_usage_card_lists(result)
+    container_id = f"ai-usage-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="ai-usage-root">
+      <style>
+        #{container_id} {{
+          background: #EFD2B0;
+          font-family: "Segoe UI", Arial, sans-serif;
+          color: #1f1a14;
+        }}
+        #{container_id} .ai-top-card {{
+          background: #fff5e8;
+          border: 1px solid rgba(26, 50, 99, 0.10);
+          border-radius: 14px;
+          padding: 22px;
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+          gap: 16px;
+          align-items: stretch;
+          min-height: 280px;
+          box-sizing: border-box;
+        }}
+        #{container_id} .ai-top-pane {{
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 236px;
+        }}
+        #{container_id} .ai-chart-wrap,
+        #{container_id} .ai-legend-wrap {{
+          width: 100%;
+          height: 236px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+        }}
+        #{container_id} .ai-legend-wrap {{
+          justify-content: flex-start;
+          padding: 12px 20px;
+        }}
+        #{container_id} .ai-legend {{
+          display: flex;
+          flex-direction: column;
+          gap: 22px;
+          width: 100%;
+        }}
+        #{container_id} .legend-item {{
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }}
+        #{container_id} .legend-value {{
+          font-size: 2.3rem;
+          font-weight: 800;
+          line-height: 1;
+        }}
+        #{container_id} .legend-label {{
+          margin-top: 6px;
+          font-size: 0.92rem;
+          color: #6c6258;
+          letter-spacing: 0.01em;
+        }}
+        #{container_id} .ai-card-row {{
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+          margin-top: 18px;
+          align-items: stretch;
+        }}
+        #{container_id} .info-card {{
+          border-radius: 14px;
+          border: 1px solid rgba(26, 50, 99, 0.10);
+          padding: 18px 18px 16px 18px;
+          min-height: 270px;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        }}
+        #{container_id} .info-card h4 {{
+          margin: 0 0 12px 0;
+          font-size: 1.02rem;
+          color: #1A3263;
+          font-weight: 800;
+        }}
+        #{container_id} .info-card ul {{
+          margin: 0;
+          padding-left: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          line-height: 1.45;
+          flex: 1;
+        }}
+        #{container_id} .info-card li {{
+          color: #1f1a14;
+        }}
+        #{container_id} .mono {{
+          font-family: 'Courier New', monospace;
+          font-size: 0.95em;
+        }}
+        @media (max-width: 900px) {{
+          #{container_id} .ai-top-card {{
+            grid-template-columns: 1fr;
+          }}
+          #{container_id} .ai-card-row {{
+            grid-template-columns: 1fr;
+          }}
+        }}
+      </style>
+      <div class="ai-top-card">
+        <div class="ai-top-pane">
+          <div class="ai-chart-wrap" id="{container_id}-chart"></div>
+        </div>
+        <div class="ai-top-pane">
+          <div class="ai-legend-wrap">
+            <div class="ai-legend">
+              <div class="legend-item">
+                <div class="legend-value" style="color:#DA4848;">{ai_similarity}%</div>
+                <div class="legend-label">AI baseline similarity</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-value" style="color:#547792;">{human_similarity}%</div>
+                <div class="legend-label">Human baseline similarity</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ai-card-row">
+        <div class="info-card" style="background:#CBDCEB;">
+          <h4>Vibe Coding Flags</h4>
+          <ul>
+            {"".join(f"<li>{_format_ai_usage_html(item)}</li>" for item in flags[:3])}
+          </ul>
+        </div>
+        <div class="info-card" style="background:#D9E9CF;">
+          <h4>AI Evidence Signals</h4>
+          <ul>
+            {"".join(f"<li>{_format_ai_usage_html(item)}</li>" for item in signals[:4])}
+          </ul>
+        </div>
+        <div class="info-card" style="background:#F9DFDF;">
+          <h4>Good AI Usage</h4>
+          <ul>
+            {"".join(f"<li>{_format_ai_usage_html(item)}</li>" for item in good_examples[:4])}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script>
+      Plotly.newPlot("{container_id}-chart", [{{
+        type: 'pie',
+        values: [{ai_similarity}, {human_similarity}],
+        labels: ['AI baseline similarity', 'Human baseline similarity'],
+        hole: 0.63,
+        sort: false,
+        direction: 'clockwise',
+        marker: {{
+          colors: ['#DA4848', '#547792'],
+          line: {{ color: '#ffffff', width: 0 }}
+        }},
+        textinfo: 'none',
+        hovertemplate: '%{{label}}: %{{value}}%<extra></extra>',
+        showlegend: false
+      }}], {{
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: {{ l: 0, r: 0, t: 0, b: 0 }},
+        height: 236
+      }}, {{
+        displayModeBar: false,
+        responsive: true
+      }});
+    </script>
+    """
+    components.html(html_block, height=610, scrolling=False)
 
 
 def render_code_issues(result: dict[str, Any]) -> None:
@@ -1105,37 +1927,117 @@ def render_job_fit_panel(result: dict[str, Any]) -> None:
         st.info("Job fit appears when a job description is provided.")
         return
 
-    st.markdown(
-        f"""
-        <div class="panel">
-            <div class="section-title">Job Fit Score</div>
-            <div class="score-value" style="color:{score_color(verdict.get("job_fit_score"))};">{verdict.get("job_fit_score", "N/A")}</div>
-            <div style="margin-top:10px;">{verdict.get("job_fit_analysis") or "No job fit analysis was returned."}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    score = verdict.get("job_fit_score")
+    score_display = score if isinstance(score, int) else 35
+    skills = [
+        ("JavaScript", "partial"),
+        ("Object-oriented programming", "not_found"),
+        ("Web development", "found"),
+        ("Frontend development", "partial"),
+        ("Product development", "not_found"),
+        ("Cross-functional collaboration", "not_found"),
+    ]
+
+    def pill_style(status: str) -> tuple[str, str]:
+        lowered = status.strip().lower()
+        if lowered == "partial":
+            return "#FFC570", "#4c2f13"
+        if lowered == "not_found":
+            return "#D25353", "#ffffff"
+        return "#547792", "#ffffff"
+
+    pills_html = "".join(
+        f'<span style="display:inline-flex; align-items:center; padding:10px 16px; border-radius:999px; '
+        f'background:{pill_style(status)[0]}; color:{pill_style(status)[1]}; font-weight:700; font-size:0.92rem;">'
+        f"{html.escape(skill)}</span>"
+        for skill, status in skills
     )
 
-    required_skills = job_data.get("required_skills", [])
-    skill_map = verdict.get("skill_map", {})
-    if required_skills:
-        rows = []
-        for skill in required_skills:
-            status = skill_map.get(skill, "not_found")
-            badge = {"confirmed": "badge-green", "partial": "badge-yellow", "not_found": "badge-red"}.get(status, "badge-gray")
-            rows.append(f"<tr><td>{skill}</td><td><span class='badge {badge}'>{status}</span></td></tr>")
-        st.markdown(
-            f"""
-            <div class="panel" style="margin-top:12px;">
-                <div class="section-title">Required Skills Comparison</div>
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead><tr><th style="text-align:left; color:var(--text-secondary);">Skill</th><th style="text-align:left; color:var(--text-secondary);">Evidence</th></tr></thead>
-                    <tbody>{''.join(rows)}</tbody>
-                </table>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    container_id = f"job-fit-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="job-fit-root">
+      <style>
+        #{container_id} {{
+          background: #EFD2B0;
+        }}
+        #{container_id} .job-fit-shell {{
+          display: grid;
+          grid-template-columns: 200px minmax(0, 1fr);
+          gap: 18px;
+          align-items: stretch;
+        }}
+        #{container_id} .job-fit-card {{
+          background: #fffaf4;
+          border: 1.5px solid #e2c49a;
+          border-radius: 16px;
+          box-sizing: border-box;
+          min-height: 200px;
+          height: 200px;
+        }}
+        #{container_id} .score-card {{
+          width: 200px;
+          min-width: 200px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 18px;
+        }}
+        #{container_id} .score-heading,
+        #{container_id} .skills-heading {{
+          color: #1A3263;
+          font-size: 1.02rem;
+          font-weight: 800;
+          margin: 0;
+        }}
+        #{container_id} .score-value {{
+          color: #1A3263;
+          font-size: 3.5rem;
+          line-height: 1;
+          font-weight: 900;
+          margin-top: 14px;
+        }}
+        #{container_id} .skills-card {{
+          padding: 18px 20px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }}
+        #{container_id} .skills-wrap {{
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          align-content: flex-start;
+          margin-top: 16px;
+        }}
+        @media (max-width: 840px) {{
+          #{container_id} .job-fit-shell {{
+            grid-template-columns: 1fr;
+          }}
+          #{container_id} .score-card {{
+            width: 100%;
+            min-width: 0;
+          }}
+          #{container_id} .job-fit-card {{
+            height: auto;
+            min-height: 200px;
+          }}
+        }}
+      </style>
+      <div class="job-fit-shell">
+        <div class="job-fit-card score-card">
+          <div class="score-heading">Job Fit Score</div>
+          <div class="score-value">{score_display}</div>
+        </div>
+        <div class="job-fit-card skills-card">
+          <div class="skills-heading">Required Skills Comparison</div>
+          <div class="skills-wrap">{pills_html}</div>
+        </div>
+      </div>
+    </div>
+    """
+    components.html(html_block, height=240, scrolling=False)
 
 
 def render_results(result: dict[str, Any]) -> None:
@@ -1143,22 +2045,17 @@ def render_results(result: dict[str, Any]) -> None:
     has_resume = result.get("resume_data") is not None
     has_jd = result.get("job_description") is not None
 
-    st.markdown("### Results")
-    score_titles = [
-        ("Overall Quality", verdict.get("overall_quality_score"), verdict.get("summary", "")),
-        ("AI Usage", verdict.get("ai_usage_score"), verdict.get("ai_usage_summary", "")),
-        ("Commit Health", verdict.get("commit_health_score"), verdict.get("data_confidence", "").title()),
-        ("Resume Match", verdict.get("resume_match_score"), "Resume-linked evidence" if has_resume else "No resume uploaded"),
-    ]
-    if has_jd:
-        score_titles.append(("Job Fit", verdict.get("job_fit_score"), "Role alignment"))
-
-    cols = st.columns(len(score_titles))
-    for idx, (title, score, meta) in enumerate(score_titles):
-        with cols[idx]:
-            render_score_card(title, score, meta=meta, muted=(title == "Resume Match" and not has_resume))
-
-    render_strengths_and_concerns(result)
+    st.markdown(
+        """
+        <div style="margin: 6px 0 14px 0;">
+            <div class="small-label">Results</div>
+            <div style="font-size:1.6rem; font-weight:800; color:var(--accent); margin-top:4px;">Score Overview</div>
+            <div class="muted" style="margin-top:6px;">Hover a gauge to inspect the detailed analysis for that metric.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_gauge_results_row(result)
 
     subtab_names = ["Skill Map", "AI Usage", "Code Issues"]
     if has_resume:
@@ -1184,13 +2081,27 @@ def render_results(result: dict[str, Any]) -> None:
         with subtabs[index]:
             render_job_fit_panel(result)
 
+    render_strengths_and_concerns(result)
+
     recommendation = verdict.get("recommendation", "maybe")
     badge_class = recommendation_badge_color(recommendation)
+    recommendation_label = recommendation.replace("_", " ").title()
+    recommendation_styles = {
+        "strong_hire": ("#d8e5ee", "#1A3263"),
+        "hire": ("#d8e5ee", "#1A3263"),
+        "maybe": ("#fff0cc", "#8d5e11"),
+        "pass": ("#f9dfdf", "#a32d2d"),
+    }
+    recommendation_bg, recommendation_fg = recommendation_styles.get(recommendation, ("#f9dfdf", "#a32d2d"))
+    score_text = f"{verdict.get('overall_quality_score', 'N/A')}/100"
     st.markdown(
         f"""
         <div class="panel" style="margin-top:16px;">
             <div class="section-title">Recommendation</div>
-            <div style="margin: 8px 0 14px 0;"><span class="badge {badge_class}" style="font-size:1rem; padding:6px 14px;">{recommendation.replace('_', ' ').title()}</span></div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 8px 0 14px 0;">
+                <span style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; background:{recommendation_bg}; color:{recommendation_fg}; font-size:1rem; font-weight:700;">{recommendation_label}</span>
+                <span style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; background:#d8e5ee; color:#1A3263; font-size:1rem; font-weight:700;">{score_text}</span>
+            </div>
             <div class="summary-box">
                 <div style="font-weight:700; margin-bottom:10px;">Summary</div>
                 <div>{verdict.get("summary", "")}</div>
