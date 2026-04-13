@@ -161,8 +161,25 @@ def apply_global_styles() -> None:
             }
 
             [data-testid="stSidebar"] {
-                background: var(--surface);
-                border-right: 1px solid var(--border);
+                background: #1A3263;
+                border-right: 1px solid rgba(255,255,255,0.08);
+            }
+
+            [data-testid="stSidebar"] * {
+                color: #ffffff;
+            }
+
+            [data-testid="stSidebar"] .stButton > button {
+                background: rgba(255,255,255,0.04);
+                color: #FFC570;
+                border: 1px solid rgba(255,255,255,0.16);
+                min-height: 36px;
+            }
+
+            [data-testid="stSidebar"] .stButton > button:hover {
+                background: rgba(255,255,255,0.08);
+                border-color: rgba(255,255,255,0.24);
+                color: #FFC570;
             }
 
             [data-testid="stHeader"] {
@@ -369,6 +386,21 @@ def apply_global_styles() -> None:
                 letter-spacing: 0.08em;
             }
 
+            .sidebar-section-label {
+                color: #547792 !important;
+                font-size: 0.76rem;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-weight: 700;
+                margin: 18px 0 10px 0;
+            }
+
+            .sidebar-divider {
+                height: 1px;
+                background: rgba(255,255,255,0.10);
+                margin: 16px 0;
+            }
+
             .oauth-button {
                 display: inline-flex;
                 align-items: center;
@@ -401,6 +433,7 @@ def init_session_state() -> None:
     st.session_state.setdefault("eval_result", None)
     st.session_state.setdefault("user", None)
     st.session_state.setdefault("oauth_state", None)
+    st.session_state.setdefault("active_view", "overview")
 
 
 def missing_api_keys() -> list[str]:
@@ -463,6 +496,14 @@ def get_github_login_url() -> str | None:
     return authorization_url
 
 
+def load_view_selection_from_query() -> None:
+    params = st.query_params
+    view = params.get("view")
+    allowed = {"overview", "ai_usage", "job_fit", "skill_map", "evaluation"}
+    if view in allowed:
+        st.session_state["active_view"] = view
+
+
 def handle_oauth_callback() -> None:
     if not oauth_ready():
         return
@@ -523,6 +564,37 @@ def handle_oauth_callback() -> None:
 def sign_out() -> None:
     st.session_state.clear()
     st.query_params.clear()
+    st.rerun()
+
+
+def load_history_selection_from_query() -> None:
+    params = st.query_params
+    history_id = params.get("history_id")
+    if not history_id:
+        return
+
+    candidate_histories: list[dict[str, Any]] = []
+    user = st.session_state.get("user")
+    if user and user.get("username"):
+        candidate_histories.extend(load_user_history(user.get("username", "")))
+    else:
+        HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        for path in HISTORY_DIR.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            analyses = payload.get("analyses", [])
+            if isinstance(analyses, list):
+                candidate_histories.extend(analyses)
+
+    for entry in candidate_histories:
+        if entry.get("id") == history_id:
+            st.session_state["last_result"] = entry.get("result")
+            st.session_state["last_error"] = None
+            st.session_state["active_view"] = "overview"
+            break
+    params.clear()
     st.rerun()
 
 
@@ -710,32 +782,48 @@ def render_recent_history() -> None:
         return
     analyses = load_user_history(user["username"])
     if not analyses:
-        st.markdown('<div class="muted" style="margin-top:8px;">No saved analyses yet.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section-label">Recent Analyses</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#8ea2bc; font-size:0.9rem;">No saved analyses yet.</div>', unsafe_allow_html=True)
         return
 
-    st.markdown('<div class="small-label" style="margin-top:18px;">Recent Analyses</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section-label">Recent Analyses</div>', unsafe_allow_html=True)
     for entry in analyses[:5]:
         repo_name = entry.get("repo_name", "Repository")
         analyzed_at = entry.get("analyzed_at", "")[:10]
-        badge_class = recommendation_badge_color(entry.get("recommendation", "maybe"))
+        score = entry.get("overall_quality_score")
+        score_value = 0 if not isinstance(score, int) else max(0, min(100, score))
+        ring_color = "#FFC570" if score_value >= 50 else "#D25353"
+        badge_label = "Pass" if str(entry.get("recommendation", "")).lower() == "pass" else "None"
+        badge_bg = "#d9efdc" if badge_label == "Pass" else "#f3deb1"
+        badge_fg = "#215732" if badge_label == "Pass" else "#8a5a08"
         st.markdown(
             f"""
-            <div class="history-card">
-                <div style="font-weight:700;">{repo_name}</div>
-                <div class="muted" style="margin-top:6px;">{analyzed_at}</div>
-                <div style="margin-top:8px;">
-                    <span class="badge {badge_class}">{str(entry.get("recommendation", "maybe")).replace("_", " ")}</span>
-                    <span class="badge badge-gray" style="margin-left:6px;">score {entry.get("overall_quality_score", "N/A")}</span>
+            <div style="position:relative; margin-bottom:6px; background:rgba(255,255,255,0.04); border-left:2px solid #FFC570; border-radius:14px; padding:14px 14px 12px 14px; border-top:1px solid rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="position:absolute; top:12px; right:12px; color:#FFC570; font-weight:800;">&rarr;</div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{html.escape(repo_name)}</div>
+                        <div style="color:#8ea2bc; margin-top:5px; font-size:0.8rem;">{html.escape(analyzed_at)}</div>
+                        <div style="margin-top:9px;">
+                            <span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; background:{badge_bg}; color:{badge_fg}; font-size:0.78rem; font-weight:700;">{badge_label}</span>
+                        </div>
+                    </div>
+                    <div style="width:38px; height:38px; border-radius:50%; background:conic-gradient({ring_color} {score_value}%, rgba(255,255,255,0.14) 0); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <div style="width:28px; height:28px; border-radius:50%; background:#1A3263; display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:0.7rem; font-weight:800;">{score if score is not None else "N/A"}</div>
+                    </div>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Open analysis", key=f"history-open-{entry['id']}", use_container_width=True):
+        if st.button(f"Load {repo_name}", key=f"history-open-{entry['id']}", use_container_width=True):
             st.session_state["last_result"] = entry.get("result")
             st.session_state["last_error"] = None
+            st.session_state["active_view"] = "overview"
             st.rerun()
 
+    st.markdown('<div style="color:#8ea2bc; font-size:0.82rem; margin:6px 0 8px 0;">View all history</div>', unsafe_allow_html=True)
     with st.expander("View all history", expanded=False):
         st.dataframe(
             [
@@ -752,62 +840,122 @@ def render_recent_history() -> None:
             use_container_width=True,
             hide_index=True,
         )
-        for entry in analyses:
-            if st.button(f"Load {entry.get('repo_name', 'analysis')}", key=f"history-load-{entry['id']}", use_container_width=True):
-                st.session_state["last_result"] = entry.get("result")
-                st.session_state["last_error"] = None
-                st.rerun()
 
 
 def render_sidebar() -> None:
     with st.sidebar:
-        st.markdown('<div class="logo-mark">CodeLens</div>', unsafe_allow_html=True)
-        st.caption("Intelligent code review for technical hiring.")
-        st.markdown('<span class="badge badge-purple">v0.1 alpha</span>', unsafe_allow_html=True)
-
+        st.markdown(
+            """
+            <style>
+                .sidebar-nav-item {
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                    padding:10px 12px;
+                    border-radius:12px;
+                    margin-bottom:6px;
+                    color:#ffffff;
+                    transition: background 180ms ease;
+                }
+                .sidebar-nav-item:hover {
+                    background: rgba(255,255,255,0.10);
+                }
+                .sidebar-nav-item.active {
+                    background: rgba(255,255,255,0.10);
+                    color:#FFC570;
+                }
+                .sidebar-nav-item.active svg,
+                .sidebar-nav-item.active span {
+                    color:#FFC570 !important;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
         user = st.session_state.get("user")
         if user:
-            if user.get("avatar_url"):
-                st.image(user["avatar_url"], width=56)
-            st.markdown(f'<div style="font-weight:700;">@{user.get("username","")}</div>', unsafe_allow_html=True)
-            if st.button("Sign out", use_container_width=True):
-                sign_out()
-            render_recent_history()
+            avatar_html = (
+                f'<img src="{html.escape(user.get("avatar_url",""))}" style="width:46px; height:46px; border-radius:50%; object-fit:cover; display:block; border:1px solid rgba(255,255,255,0.18);" />'
+                if user.get("avatar_url")
+                else '<div style="width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.12); color:#FFC570; font-weight:800;">U</div>'
+            )
+            profile_html = f"""
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="position:relative; width:46px; height:46px; flex-shrink:0;">
+                    {avatar_html}
+                    <span style="position:absolute; right:2px; bottom:2px; width:10px; height:10px; border-radius:50%; background:#4cd964; border:2px solid #1A3263;"></span>
+                </div>
+                <div style="flex:1; min-width:0; color:#FFC570; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@{html.escape(user.get('username',''))}</div>
+            </div>
+            """
+            left, right = st.columns([6, 1])
+            with left:
+                st.markdown(profile_html, unsafe_allow_html=True)
+            with right:
+                if st.button("↗", key="sidebar-signout"):
+                    sign_out()
         else:
-            st.markdown('<div class="small-label" style="margin-top:18px;">Account</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sidebar-section-label">Account</div>', unsafe_allow_html=True)
             render_oauth_button()
+            st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="sidebar-section-label">Recent Analyses</div>', unsafe_allow_html=True)
+            st.markdown('<div style="color:#8ea2bc; font-size:0.9rem;">Login to view history</div>', unsafe_allow_html=True)
+
+        if user:
+            st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
+        nav_items = [
+            ("Overview", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zM9 2h5v3H9zM9 7h5v7H9zM2 9h5v5H2z"/></svg>', True),
+            ("AI Usage", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v4c0 3.6-2.5 5.8-6 7-3.5-1.2-6-3.4-6-7V4l6-3z"/></svg>', False),
+            ("Job Fit", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6 1h4l1 2h3v11H2V3h3l1-2zm2 5a2 2 0 100 4 2 2 0 000-4z"/></svg>', False),
+            ("Skill Map", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H2zM2 7h8v2H2zM2 11h6v2H2zM11.5 2A2.5 2.5 0 1111.5 7 2.5 2.5 0 0111.5 2zm0 7A2.5 2.5 0 1111.5 14 2.5 2.5 0 0111.5 9z"/></svg>', False),
+            ("Evaluation", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 13h12v1H2zM3 10h2v3H3zM7 6h2v7H7zM11 3h2v10h-2z"/></svg>', False),
+        ]
+        view_keys = {
+            "Overview": "overview",
+            "AI Usage": "ai_usage",
+            "Job Fit": "job_fit",
+            "Skill Map": "skill_map",
+            "Evaluation": "evaluation",
+        }
+        current_view = st.session_state.get("active_view", "overview")
+        if user:
+            for label, icon, _active in nav_items:
+                view_key = view_keys[label]
+                active = current_view == view_key
+                st.markdown(
+                    f"""
+                    <a href="?view={view_key}" style="text-decoration:none;">
+                        <div class="sidebar-nav-item {'active' if active else ''}">
+                            <span style="display:inline-flex; color:{'#FFC570' if active else '#ffffff'};">{icon}</span>
+                            <span style="font-weight:{'700' if active else '600'};">{label}</span>
+                        </div>
+                    </a>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            render_recent_history()
 
         ready, detail = check_mcp_status()
-        status_class = "badge-green" if ready else "badge-red"
-        label = "MCP ready" if ready else "MCP unavailable"
         st.markdown(
             f"""
-            <div style="margin-top:18px;">
-                <div class="small-label">MCP Server</div>
-                <div style="margin-top:8px;"><span class="badge {status_class}">{label}</span></div>
-                <div class="muted" style="margin-top:8px;">{detail}</div>
+            <div class="sidebar-divider" style="margin-top:18px;"></div>
+            <div style="padding-top:8px;">
+                <div style="display:flex; align-items:center; gap:8px; color:#ffffff; font-size:0.92rem; font-weight:600;">
+                    <span style="width:8px; height:8px; border-radius:50%; background:{'#4cd964' if ready else '#DA4848'}; display:inline-block;"></span>
+                    <span>{'MCP server ready' if ready else 'MCP server unavailable'}</span>
+                </div>
+                <div style="color:#8ea2bc; margin-top:8px; font-size:0.78rem;">{html.escape(detail)}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        if st.button("Clear cache", use_container_width=True):
+        if st.button("Clear cache", use_container_width=True, key="sidebar-clear-cache"):
             st.cache_data.clear()
             st.session_state["last_result"] = None
             st.session_state["last_error"] = None
             st.rerun()
-
-        with st.expander("How it works", expanded=False):
-            st.markdown(
-                """
-                1. Validate the GitHub repository and fetch commit history.
-                2. Index the codebase with GitNexus and embed chunks into Pinecone.
-                3. Compare style against human and AI baseline corpora.
-                4. Optionally parse a resume and job description for claim matching.
-                5. Run the LLM review (efficient mode: two calls by default) and apply output guardrails.
-                   Set `CREWAI_MODE=full` in `.env` for the original multi-agent chain (more detail, higher cost).
-                """
-            )
 
 
 def run_analysis_pipeline(
@@ -2044,44 +2192,59 @@ def render_results(result: dict[str, Any]) -> None:
     verdict = result["verdict"]
     has_resume = result.get("resume_data") is not None
     has_jd = result.get("job_description") is not None
+    active_view = st.session_state.get("active_view", "overview")
 
-    st.markdown(
-        """
-        <div style="margin: 6px 0 14px 0;">
-            <div class="small-label">Results</div>
-            <div style="font-size:1.6rem; font-weight:800; color:var(--accent); margin-top:4px;">Score Overview</div>
-            <div class="muted" style="margin-top:6px;">Hover a gauge to inspect the detailed analysis for that metric.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    render_gauge_results_row(result)
+    if active_view == "overview":
+        st.markdown(
+            """
+            <div style="margin: 6px 0 14px 0;">
+                <div class="small-label">Results</div>
+                <div style="font-size:1.6rem; font-weight:800; color:var(--accent); margin-top:4px;">Score Overview</div>
+                <div class="muted" style="margin-top:6px;">Hover a gauge to inspect the detailed analysis for that metric.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_gauge_results_row(result)
 
-    subtab_names = ["Skill Map", "AI Usage", "Code Issues"]
-    if has_resume:
-        subtab_names.append("Resume")
-    if has_jd:
-        subtab_names.append("Job Fit")
-    subtabs = st.tabs(subtab_names)
-    index = 0
-    with subtabs[index]:
-        render_skill_map(result)
-    index += 1
-    with subtabs[index]:
-        render_ai_usage(result)
-    index += 1
-    with subtabs[index]:
-        render_code_issues(result)
-    index += 1
-    if has_resume:
+        st.markdown('<div class="small-label" style="margin-bottom:10px;">Analysis Sections</div>', unsafe_allow_html=True)
+        section_tabs = ["Skill Map", "AI Usage", "Code Issues"]
+        if has_resume:
+            section_tabs.append("Resume")
+        if has_jd:
+            section_tabs.append("Job Fit")
+        subtabs = st.tabs(section_tabs)
+        index = 0
         with subtabs[index]:
-            render_resume_panel(result)
+            render_skill_map(result)
         index += 1
-    if has_jd:
         with subtabs[index]:
-            render_job_fit_panel(result)
+            render_ai_usage(result)
+        index += 1
+        with subtabs[index]:
+            render_code_issues(result)
+        index += 1
+        if has_resume:
+            with subtabs[index]:
+                render_resume_panel(result)
+            index += 1
+        if has_jd:
+            with subtabs[index]:
+                render_job_fit_panel(result)
 
-    render_strengths_and_concerns(result)
+        render_strengths_and_concerns(result)
+    elif active_view == "skill_map":
+        st.markdown("### Skill Map")
+        render_skill_map(result)
+    elif active_view == "ai_usage":
+        st.markdown("### AI Usage")
+        render_ai_usage(result)
+    elif active_view == "job_fit":
+        st.markdown("### Job Fit")
+        if has_jd:
+            render_job_fit_panel(result)
+        else:
+            st.info("Add a job description during analysis to unlock the Job Fit view.")
 
     recommendation = verdict.get("recommendation", "maybe")
     badge_class = recommendation_badge_color(recommendation)
@@ -2302,9 +2465,30 @@ def render_mcp_tab() -> None:
             st.error(f"MCP server check failed. {detail}")
 
 
+def render_logged_out_home() -> None:
+    st.markdown(
+        """
+        <div style="min-height:68vh; display:flex; align-items:center; justify-content:center;">
+            <div style="text-align:center; max-width:560px; padding:24px;">
+                <div class="logo-mark" style="font-size:3rem; white-space:normal;">CodeLens</div>
+                <div style="color:var(--text-secondary); margin-top:14px; font-size:1.05rem;">
+                    Sign in with GitHub to unlock analysis history, repository scoring, AI usage insights, and the full CodeLens dashboard.
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _, center, _ = st.columns([1, 1.2, 1])
+    with center:
+        render_oauth_button()
+
+
 def main() -> None:
     init_session_state()
     handle_oauth_callback()
+    load_view_selection_from_query()
+    load_history_selection_from_query()
     apply_global_styles()
     render_sidebar()
 
@@ -2313,13 +2497,19 @@ def main() -> None:
         st.error("Missing required API keys: " + ", ".join(missing))
 
     render_app_header()
-    analyze_tab, evaluation_tab, mcp_tab = st.tabs(["Analyze", "Evaluation", "MCP"])
-    with analyze_tab:
-        render_analyze_tab()
-    with evaluation_tab:
-        render_evaluation_tab()
-    with mcp_tab:
-        render_mcp_tab()
+    active_view = st.session_state.get("active_view", "overview")
+    tab_order = ["Analyze", "Evaluation", "MCP"]
+    if active_view == "evaluation":
+        tab_order = ["Evaluation", "Analyze", "MCP"]
+    tab_objects = st.tabs(tab_order)
+    for label, tab in zip(tab_order, tab_objects, strict=True):
+        with tab:
+            if label == "Analyze":
+                render_analyze_tab()
+            elif label == "Evaluation":
+                render_evaluation_tab()
+            else:
+                render_mcp_tab()
 
 
 if __name__ == "__main__":
