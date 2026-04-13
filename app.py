@@ -215,36 +215,55 @@ def apply_global_styles() -> None:
                 box-shadow: 0 0 0 1px var(--accent) !important;
             }
 
+            [data-testid="stTextInput"] input::placeholder,
+            [data-testid="stTextArea"] textarea::placeholder {
+                color: #735843 !important;
+                opacity: 1 !important;
+            }
+
             .stButton > button {
                 background: rgba(26, 50, 99, 0.08);
                 color: var(--accent);
                 border: 1px solid var(--border);
                 border-radius: 12px;
+                transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
             }
 
             .stButton > button[kind="primary"] {
                 background: var(--accent) !important;
-                color: var(--accent-2) !important;
-                border: 1px solid var(--accent) !important;
+                color: #ffffff !important;
+                border: 1px solid #13274e !important;
                 font-weight: 700 !important;
                 min-height: 48px;
+                box-shadow: 0 12px 24px rgba(26, 50, 99, 0.18);
             }
 
             .stButton > button:hover {
                 border-color: var(--border-hover);
                 color: var(--accent);
                 background: rgba(26, 50, 99, 0.12);
+                transform: translateY(-1px);
+            }
+
+            .stButton > button[kind="primary"]:hover {
+                color: #ffffff !important;
+                background: #13274e !important;
+                border-color: #13274e !important;
             }
 
             [data-testid="stTabs"] button {
                 background: transparent;
                 color: var(--text-secondary);
                 border-bottom: 2px solid transparent;
+                border-radius: 10px 10px 0 0;
+                padding: 0.75rem 0.9rem;
+                transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
             }
 
             [data-testid="stTabs"] button[aria-selected="true"] {
                 color: var(--accent);
                 border-bottom-color: var(--accent);
+                background: rgba(26, 50, 99, 0.06);
             }
 
             .panel {
@@ -421,6 +440,51 @@ def apply_global_styles() -> None:
                 text-decoration: none;
                 color: #FFC570 !important;
             }
+
+            @media (max-width: 1100px) {
+                .block-container {
+                    padding-top: 2.4rem;
+                    padding-bottom: 1.5rem;
+                }
+
+                .score-card,
+                .panel {
+                    border-radius: 18px;
+                }
+
+                .logo-mark {
+                    font-size: 2rem;
+                }
+            }
+
+            @media (max-width: 760px) {
+                .block-container {
+                    padding-top: 2rem;
+                    padding-left: 1rem;
+                    padding-right: 1rem;
+                }
+
+                .app-header {
+                    gap: 10px;
+                    align-items: flex-start;
+                }
+
+                .app-header-chip {
+                    width: 100%;
+                    justify-content: center;
+                    white-space: normal;
+                    text-align: center;
+                }
+
+                .score-card {
+                    min-height: 116px;
+                }
+
+                [data-testid="stTabs"] button {
+                    font-size: 0.88rem;
+                    padding: 0.72rem 0.55rem;
+                }
+            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -499,6 +563,13 @@ def get_github_login_url() -> str | None:
 def load_view_selection_from_query() -> None:
     params = st.query_params
     view = params.get("view")
+    allowed = {"overview", "ai_usage", "job_fit", "skill_map", "evaluation"}
+    if view in allowed:
+        st.session_state["active_view"] = view
+
+
+def set_active_view(view: str) -> None:
+    """Switch in-app result view without URL navigation."""
     allowed = {"overview", "ai_usage", "job_fit", "skill_map", "evaluation"}
     if view in allowed:
         st.session_state["active_view"] = view
@@ -847,26 +918,30 @@ def render_sidebar() -> None:
         st.markdown(
             """
             <style>
-                .sidebar-nav-item {
-                    display:flex;
-                    align-items:center;
-                    gap:10px;
-                    padding:10px 12px;
-                    border-radius:12px;
-                    margin-bottom:6px;
-                    color:#ffffff;
-                    transition: background 180ms ease;
+                [data-testid="stSidebar"] .stButton > button {
+                    justify-content: flex-start;
+                    padding-left: 14px;
+                    font-weight: 600;
                 }
-                .sidebar-nav-item:hover {
-                    background: rgba(255,255,255,0.10);
+                [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+                    background: rgba(255,255,255,0.04);
+                    color: rgba(255,255,255,0.88);
+                    border: 1px solid rgba(255,255,255,0.12);
                 }
-                .sidebar-nav-item.active {
-                    background: rgba(255,255,255,0.10);
-                    color:#FFC570;
+                [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+                    background: rgba(255,255,255,0.08);
+                    color: #ffffff;
+                    border-color: rgba(255,255,255,0.22);
                 }
-                .sidebar-nav-item.active svg,
-                .sidebar-nav-item.active span {
-                    color:#FFC570 !important;
+                [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+                    background: linear-gradient(135deg, #2d4f96 0%, #1A3263 100%) !important;
+                    color: #ffffff !important;
+                    border: 1px solid rgba(255,255,255,0.10) !important;
+                    box-shadow: 0 10px 24px rgba(5, 12, 28, 0.26);
+                }
+                [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+                    background: linear-gradient(135deg, #345aa9 0%, #203d76 100%) !important;
+                    color: #ffffff !important;
                 }
             </style>
             """,
@@ -904,35 +979,24 @@ def render_sidebar() -> None:
         if user:
             st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
         nav_items = [
-            ("Overview", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zM9 2h5v3H9zM9 7h5v7H9zM2 9h5v5H2z"/></svg>', True),
-            ("AI Usage", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l6 3v4c0 3.6-2.5 5.8-6 7-3.5-1.2-6-3.4-6-7V4l6-3z"/></svg>', False),
-            ("Job Fit", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6 1h4l1 2h3v11H2V3h3l1-2zm2 5a2 2 0 100 4 2 2 0 000-4z"/></svg>', False),
-            ("Skill Map", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H2zM2 7h8v2H2zM2 11h6v2H2zM11.5 2A2.5 2.5 0 1111.5 7 2.5 2.5 0 0111.5 2zm0 7A2.5 2.5 0 1111.5 14 2.5 2.5 0 0111.5 9z"/></svg>', False),
-            ("Evaluation", '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 13h12v1H2zM3 10h2v3H3zM7 6h2v7H7zM11 3h2v10h-2z"/></svg>', False),
+            ("Overview", "overview"),
+            ("AI Usage", "ai_usage"),
+            ("Job Fit", "job_fit"),
+            ("Skill Map", "skill_map"),
+            ("Evaluation", "evaluation"),
         ]
-        view_keys = {
-            "Overview": "overview",
-            "AI Usage": "ai_usage",
-            "Job Fit": "job_fit",
-            "Skill Map": "skill_map",
-            "Evaluation": "evaluation",
-        }
         current_view = st.session_state.get("active_view", "overview")
         if user:
-            for label, icon, _active in nav_items:
-                view_key = view_keys[label]
+            for label, view_key in nav_items:
                 active = current_view == view_key
-                st.markdown(
-                    f"""
-                    <a href="?view={view_key}" style="text-decoration:none;">
-                        <div class="sidebar-nav-item {'active' if active else ''}">
-                            <span style="display:inline-flex; color:{'#FFC570' if active else '#ffffff'};">{icon}</span>
-                            <span style="font-weight:{'700' if active else '600'};">{label}</span>
-                        </div>
-                    </a>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                if st.button(
+                    label,
+                    key=f"sidebar-nav-{view_key}",
+                    use_container_width=True,
+                    type="primary" if active else "secondary",
+                ):
+                    set_active_view(view_key)
+                    st.rerun()
 
             render_recent_history()
 
@@ -1368,6 +1432,26 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           background: rgba(255, 245, 232, 0.5);
           border-radius: 999px;
         }}
+        @media (max-width: 980px) {{
+          #{container_id} .gauge-scroller {{
+            overflow: visible;
+          }}
+          #{container_id} .gauge-grid {{
+            min-width: 0;
+            flex-wrap: wrap;
+          }}
+          #{container_id} .gauge-card {{
+            width: calc(50% - 9px);
+            min-width: 260px;
+            max-width: none;
+          }}
+        }}
+        @media (max-width: 640px) {{
+          #{container_id} .gauge-card {{
+            width: 100%;
+            min-width: 0;
+          }}
+        }}
       </style>
       <div class="gauge-scroller"><div class="gauge-grid"></div></div>
     </div>
@@ -1376,9 +1460,6 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       const root = document.getElementById({json.dumps(container_id)});
       const grid = root.querySelector('.gauge-grid');
       const metrics = {json.dumps(payload)};
-      const BASE_HEIGHT = 420;
-      const EXPANDED_HEIGHT = 620;
-      let hoverCount = 0;
 
       function setFrameHeight(height) {{
         try {{
@@ -1393,7 +1474,7 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       }}
 
       function refreshFrameHeight() {{
-        const target = hoverCount > 0 ? EXPANDED_HEIGHT : BASE_HEIGHT;
+        const target = Math.max(420, root.scrollHeight + 16);
         setFrameHeight(target);
       }}
 
@@ -1410,14 +1491,8 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           </div>
         `;
         grid.appendChild(card);
-        card.addEventListener('mouseenter', () => {{
-          hoverCount += 1;
-          refreshFrameHeight();
-        }});
-        card.addEventListener('mouseleave', () => {{
-          hoverCount = Math.max(0, hoverCount - 1);
-          refreshFrameHeight();
-        }});
+        card.addEventListener('mouseenter', refreshFrameHeight);
+        card.addEventListener('mouseleave', refreshFrameHeight);
         Plotly.newPlot(card.querySelector('.gauge-plot'), [{{
           type: 'indicator',
           mode: 'gauge+number',
@@ -1447,12 +1522,14 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           displayModeBar: false,
           staticPlot: true,
           responsive: true
-        }});
+        }}).then(refreshFrameHeight);
       }});
       refreshFrameHeight();
+      window.addEventListener('resize', refreshFrameHeight);
+      new MutationObserver(refreshFrameHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=420, scrolling=False)
+    components.html(html_block, height=560, scrolling=False)
 
 
 def render_strengths_and_concerns(result: dict[str, Any]) -> None:
@@ -1783,8 +1860,30 @@ def render_skill_map(result: dict[str, Any]) -> None:
         </div>
       </div>
     </div>
+    <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+      function refreshHeight() {{
+        const nextHeight = Math.max(420, root.scrollHeight + 12);
+        setFrameHeight(nextHeight);
+      }}
+      refreshHeight();
+      window.addEventListener('load', refreshHeight);
+      window.addEventListener('resize', refreshHeight);
+      new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
+    </script>
     """
-    components.html(html_block, height=500, scrolling=False)
+    components.html(html_block, height=540, scrolling=False)
 
 
 def render_ai_usage(result: dict[str, Any]) -> None:
@@ -1825,6 +1924,15 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           justify-content: center;
           min-height: 236px;
         }}
+        #{container_id} .ai-chart-stage {{
+          position: relative;
+          width: min(100%, 300px);
+          aspect-ratio: 1 / 1;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }}
         #{container_id} .ai-chart-wrap,
         #{container_id} .ai-legend-wrap {{
           width: 100%;
@@ -1833,6 +1941,35 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           align-items: center;
           justify-content: center;
           box-sizing: border-box;
+        }}
+        #{container_id} .ai-chart-wrap {{
+          width: 100%;
+          height: 100%;
+          margin: 0 auto;
+        }}
+        #{container_id} .ai-chart-center {{
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          text-align: center;
+        }}
+        #{container_id} .ai-center-title {{
+          color: #6c6258;
+          font-size: 0.74rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 800;
+        }}
+        #{container_id} .ai-center-value {{
+          margin-top: 6px;
+          color: #1A3263;
+          font-size: 1.8rem;
+          line-height: 1;
+          font-weight: 900;
         }}
         #{container_id} .ai-legend-wrap {{
           justify-content: flex-start;
@@ -1902,6 +2039,14 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           #{container_id} .ai-top-card {{
             grid-template-columns: 1fr;
           }}
+          #{container_id} .ai-legend-wrap {{
+            justify-content: center;
+            padding: 0 10px 8px 10px;
+          }}
+          #{container_id} .ai-legend {{
+            align-items: center;
+            text-align: center;
+          }}
           #{container_id} .ai-card-row {{
             grid-template-columns: 1fr;
           }}
@@ -1909,7 +2054,13 @@ def render_ai_usage(result: dict[str, Any]) -> None:
       </style>
       <div class="ai-top-card">
         <div class="ai-top-pane">
-          <div class="ai-chart-wrap" id="{container_id}-chart"></div>
+          <div class="ai-chart-stage">
+            <div class="ai-chart-wrap" id="{container_id}-chart"></div>
+            <div class="ai-chart-center">
+              <div class="ai-center-title">Lean</div>
+              <div class="ai-center-value">{'AI' if ai_similarity >= human_similarity else 'Human'}</div>
+            </div>
+          </div>
         </div>
         <div class="ai-top-pane">
           <div class="ai-legend-wrap">
@@ -1949,6 +2100,22 @@ def render_ai_usage(result: dict[str, Any]) -> None:
     </div>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+      function refreshHeight() {{
+        const nextHeight = Math.max(560, root.scrollHeight + 12);
+        setFrameHeight(nextHeight);
+      }}
       Plotly.newPlot("{container_id}-chart", [{{
         type: 'pie',
         values: [{ai_similarity}, {human_similarity}],
@@ -1966,15 +2133,19 @@ def render_ai_usage(result: dict[str, Any]) -> None:
       }}], {{
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        margin: {{ l: 0, r: 0, t: 0, b: 0 }},
+        margin: {{ l: 8, r: 8, t: 8, b: 8 }},
         height: 236
       }}, {{
         displayModeBar: false,
         responsive: true
-      }});
+      }}).then(refreshHeight);
+      refreshHeight();
+      window.addEventListener('load', refreshHeight);
+      window.addEventListener('resize', refreshHeight);
+      new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=610, scrolling=False)
+    components.html(html_block, height=700, scrolling=False)
 
 
 def render_code_issues(result: dict[str, Any]) -> None:
@@ -2184,8 +2355,30 @@ def render_job_fit_panel(result: dict[str, Any]) -> None:
         </div>
       </div>
     </div>
+    <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+      function refreshHeight() {{
+        const nextHeight = Math.max(240, root.scrollHeight + 12);
+        setFrameHeight(nextHeight);
+      }}
+      refreshHeight();
+      window.addEventListener('load', refreshHeight);
+      window.addEventListener('resize', refreshHeight);
+      new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
+    </script>
     """
-    components.html(html_block, height=240, scrolling=False)
+    components.html(html_block, height=320, scrolling=False)
 
 
 def render_results(result: dict[str, Any]) -> None:
