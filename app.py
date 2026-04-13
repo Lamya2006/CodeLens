@@ -1320,7 +1320,7 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
     payload = [
         {
             "title": item["title"],
-            "score": item.get("score"),
+            "score": 0 if item.get("score") is None else item.get("score"),
             "detail_html": "".join(
                 f"<li>{html.escape(bullet)}</li>" for bullet in detail_to_bullets(str(item.get('detail', '')))
             ),
@@ -1386,6 +1386,15 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           width: 100%;
           height: 188px;
         }}
+        #{container_id} .gauge-score {{
+          text-align: center;
+          color: #1A3263;
+          font-size: 2.2rem;
+          font-weight: 900;
+          line-height: 1;
+          min-height: 36px;
+          margin-top: -8px;
+        }}
         #{container_id} .gauge-footer {{
           text-align: center;
           color: #5F5348;
@@ -1393,6 +1402,11 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           font-weight: 700;
           margin-top: 4px;
           min-height: 28px;
+          opacity: 0;
+          transition: opacity 260ms ease;
+        }}
+        #{container_id}.show-labels .gauge-footer {{
+          opacity: 1;
         }}
         #{container_id} .gauge-details {{
           margin-top: 10px;
@@ -1460,6 +1474,10 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       const root = document.getElementById({json.dumps(container_id)});
       const grid = root.querySelector('.gauge-grid');
       const metrics = {json.dumps(payload)};
+      const animationKey = "codelens-score-overview-" + {json.dumps(json.dumps(payload, sort_keys=True))};
+      let hasAnimated = sessionStorage.getItem(animationKey) === 'done';
+      const plotEls = [];
+      const scoreEls = [];
 
       function setFrameHeight(height) {{
         try {{
@@ -1478,25 +1496,11 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         setFrameHeight(target);
       }}
 
-      metrics.forEach((metric, idx) => {{
-        const card = document.createElement('div');
-        card.className = 'gauge-card';
-        card.innerHTML = `
-          <div class="gauge-title">${{metric.title}}</div>
-          <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
-          <div class="gauge-footer">${{metric.score === null ? 'N/A' : metric.score + ' / 100'}}</div>
-          <div class="gauge-details">
-            <div class="hover-label">${{metric.title}} Analysis</div>
-            <ul class="hover-copy">${{metric.detail_html}}</ul>
-          </div>
-        `;
-        grid.appendChild(card);
-        card.addEventListener('mouseenter', refreshFrameHeight);
-        card.addEventListener('mouseleave', refreshFrameHeight);
-        Plotly.newPlot(card.querySelector('.gauge-plot'), [{{
+      function buildGauge(metric, value) {{
+        return [{{
           type: 'indicator',
           mode: 'gauge+number',
-          value: metric.score === null ? 0 : metric.score,
+          value: value,
           number: {{
             font: {{ size: 34, color: metric.muted ? '#547792' : metric.color, family: 'Segoe UI, sans-serif' }},
             valueformat: '.0f'
@@ -1513,17 +1517,106 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
             ]
           }},
           hoverinfo: 'skip'
-        }}], {{
+        }}];
+      }}
+
+      function plotLayout() {{
+        return {{
           paper_bgcolor: 'rgba(0,0,0,0)',
           plot_bgcolor: 'rgba(0,0,0,0)',
           margin: {{ l: 8, r: 8, t: 8, b: 0 }},
           height: 188
-        }}, {{
+        }};
+      }}
+
+      function plotConfig() {{
+        return {{
           displayModeBar: false,
           staticPlot: true,
           responsive: true
-        }}).then(refreshFrameHeight);
+        }};
+      }}
+
+      function renderGaugeAt(index, value) {{
+        Plotly.react(plotEls[index], buildGauge(metrics[index], value), plotLayout(), plotConfig());
+        if (scoreEls[index]) {{
+          scoreEls[index].textContent = String(value);
+        }}
+      }}
+
+      function revealLabels() {{
+        root.classList.add('show-labels');
+        refreshFrameHeight();
+      }}
+
+      function animateGaugesOnce() {{
+        if (hasAnimated) {{
+          revealLabels();
+          return;
+        }}
+        hasAnimated = true;
+        sessionStorage.setItem(animationKey, 'done');
+        const duration = 1500;
+        const start = performance.now();
+        function easeOutCubic(t) {{
+          return 1 - Math.pow(1 - t, 3);
+        }}
+        function frame(now) {{
+          const raw = Math.min((now - start) / duration, 1);
+          const eased = easeOutCubic(raw);
+          metrics.forEach((metric, idx) => {{
+            const currentValue = Math.round(metric.score * eased);
+            renderGaugeAt(idx, currentValue);
+          }});
+          if (raw < 1) {{
+            requestAnimationFrame(frame);
+          }} else {{
+            metrics.forEach((metric, idx) => renderGaugeAt(idx, metric.score));
+            revealLabels();
+          }}
+        }}
+        requestAnimationFrame(frame);
+      }}
+
+      metrics.forEach((metric, idx) => {{
+        const card = document.createElement('div');
+        card.className = 'gauge-card';
+        card.innerHTML = `
+          <div class="gauge-title">${{metric.title}}</div>
+          <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
+          <div class="gauge-score">${{hasAnimated ? metric.score : 0}}</div>
+          <div class="gauge-footer">/100</div>
+          <div class="gauge-details">
+            <div class="hover-label">${{metric.title}} Analysis</div>
+            <ul class="hover-copy">${{metric.detail_html}}</ul>
+          </div>
+        `;
+        grid.appendChild(card);
+        const plotEl = card.querySelector('.gauge-plot');
+        const scoreEl = card.querySelector('.gauge-score');
+        plotEls.push(plotEl);
+        scoreEls.push(scoreEl);
+        card.addEventListener('mouseenter', refreshFrameHeight);
+        card.addEventListener('mouseleave', refreshFrameHeight);
+        Plotly.newPlot(plotEl, buildGauge(metric, hasAnimated ? metric.score : 0), plotLayout(), plotConfig()).then(refreshFrameHeight);
       }});
+      const observer = new IntersectionObserver((entries) => {{
+        entries.forEach((entry) => {{
+          if (entry.isIntersecting) {{
+            animateGaugesOnce();
+            observer.disconnect();
+          }}
+        }});
+      }}, {{ threshold: 0.3 }});
+      observer.observe(root);
+      if (hasAnimated) {{
+        metrics.forEach((metric, idx) => {{
+          if (scoreEls[idx]) {{
+            scoreEls[idx].textContent = String(metric.score);
+          }}
+        }});
+        revealLabels();
+      }}
       refreshFrameHeight();
       window.addEventListener('resize', refreshFrameHeight);
       new MutationObserver(refreshFrameHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
@@ -1718,7 +1811,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
 
     def render_pills(entries: list[tuple[str, str]]) -> str:
         return "".join(
-            f'<div class="skill-cell"><div class="skill-pill" style="background:{pill_colors(status)[0]}; color:{pill_colors(status)[1]};">{html.escape(skill)}</div></div>'
+            f'<div class="skill-cell"><div class="skill-pill" data-bg="{pill_colors(status)[0]}" data-fg="{pill_colors(status)[1]}">{html.escape(skill)}</div></div>'
             for skill, status in entries
         )
 
@@ -1780,6 +1873,16 @@ def render_skill_map(result: dict[str, Any]) -> None:
           overflow: hidden;
           white-space: nowrap;
           text-overflow: ellipsis;
+          background: #c8c5be;
+          color: #8a847c;
+          transition: background 240ms ease, color 240ms ease, transform 220ms ease;
+          transform: scale(1);
+        }}
+        #{container_id} .skill-pill.revealed {{
+          transform: scale(1.07);
+        }}
+        #{container_id} .skill-pill.settled {{
+          transform: scale(1);
         }}
         #{container_id} .summary-card {{
           margin-top: 18px;
@@ -1847,21 +1950,25 @@ def render_skill_map(result: dict[str, Any]) -> None:
         <div class="summary-grid">
           <div class="summary-col">
             <div class="summary-label">Confirmed</div>
-            <div class="summary-value" style="color:#1A3263;">{counts["confirmed"]}</div>
+            <div class="summary-value" data-target="{counts["confirmed"]}" style="color:#1A3263;">0</div>
           </div>
           <div class="summary-col">
             <div class="summary-label">Partial</div>
-            <div class="summary-value" style="color:#BA7517;">{counts["partial"]}</div>
+            <div class="summary-value" data-target="{counts["partial"]}" style="color:#BA7517;">0</div>
           </div>
           <div class="summary-col">
             <div class="summary-label">Not Found</div>
-            <div class="summary-value" style="color:#DA4848;">{counts["not_found"]}</div>
+            <div class="summary-value" data-target="{counts["not_found"]}" style="color:#DA4848;">0</div>
           </div>
         </div>
       </div>
     </div>
     <script>
       const root = document.getElementById({json.dumps(container_id)});
+      const animationKey = "codelens-skill-map-" + {json.dumps(json.dumps(items, sort_keys=True))};
+      const pills = Array.from(root.querySelectorAll('.skill-pill'));
+      const countEls = Array.from(root.querySelectorAll('.summary-value'));
+      let alreadyPlayed = sessionStorage.getItem(animationKey) === 'done';
       function setFrameHeight(height) {{
         try {{
           if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
@@ -1876,6 +1983,75 @@ def render_skill_map(result: dict[str, Any]) -> None:
       function refreshHeight() {{
         const nextHeight = Math.max(420, root.scrollHeight + 12);
         setFrameHeight(nextHeight);
+      }}
+      function applyFinalState() {{
+        pills.forEach((pill) => {{
+          pill.style.background = pill.dataset.bg;
+          pill.style.color = pill.dataset.fg;
+          pill.classList.add('settled');
+        }});
+        countEls.forEach((el) => {{
+          el.textContent = el.dataset.target || '0';
+        }});
+        refreshHeight();
+      }}
+      function animateCounts(totalDuration) {{
+        const targets = countEls.map((el) => parseInt(el.dataset.target || '0', 10));
+        const start = performance.now();
+        function easeOutCubic(t) {{
+          return 1 - Math.pow(1 - t, 3);
+        }}
+        function frame(now) {{
+          const raw = Math.min((now - start) / totalDuration, 1);
+          const eased = easeOutCubic(raw);
+          countEls.forEach((el, idx) => {{
+            el.textContent = String(Math.round(targets[idx] * eased));
+          }});
+          if (raw < 1) {{
+            requestAnimationFrame(frame);
+          }} else {{
+            countEls.forEach((el, idx) => {{
+              el.textContent = String(targets[idx]);
+            }});
+            sessionStorage.setItem(animationKey, 'done');
+          }}
+        }}
+        requestAnimationFrame(frame);
+      }}
+      function playReveal() {{
+        if (alreadyPlayed) {{
+          applyFinalState();
+          return;
+        }}
+        alreadyPlayed = true;
+        const stagger = 60;
+        const totalDuration = Math.max(600, (Math.max(pills.length - 1, 0) * stagger) + 360);
+        animateCounts(totalDuration);
+        pills.forEach((pill, idx) => {{
+          const delay = idx * stagger;
+          setTimeout(() => {{
+            pill.style.background = pill.dataset.bg;
+            pill.style.color = pill.dataset.fg;
+            pill.classList.add('revealed');
+            refreshHeight();
+            setTimeout(() => {{
+              pill.classList.remove('revealed');
+              pill.classList.add('settled');
+            }}, 180);
+          }}, delay);
+        }});
+      }}
+      const observer = new IntersectionObserver((entries) => {{
+        entries.forEach((entry) => {{
+          if (entry.isIntersecting) {{
+            playReveal();
+            observer.disconnect();
+          }}
+        }});
+      }}, {{ threshold: 0.35 }});
+      observer.observe(root);
+      if (alreadyPlayed) {{
+        applyFinalState();
       }}
       refreshHeight();
       window.addEventListener('load', refreshHeight);
@@ -2439,35 +2615,7 @@ def render_results(result: dict[str, Any]) -> None:
         else:
             st.info("Add a job description during analysis to unlock the Job Fit view.")
 
-    recommendation = verdict.get("recommendation", "maybe")
-    badge_class = recommendation_badge_color(recommendation)
-    recommendation_label = recommendation.replace("_", " ").title()
-    recommendation_styles = {
-        "strong_hire": ("#d8e5ee", "#1A3263"),
-        "hire": ("#d8e5ee", "#1A3263"),
-        "maybe": ("#fff0cc", "#8d5e11"),
-        "pass": ("#f9dfdf", "#a32d2d"),
-    }
-    recommendation_bg, recommendation_fg = recommendation_styles.get(recommendation, ("#f9dfdf", "#a32d2d"))
-    score_text = f"{verdict.get('overall_quality_score', 'N/A')}/100"
-    st.markdown(
-        f"""
-        <div class="panel" style="margin-top:16px;">
-            <div class="section-title">Recommendation</div>
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 8px 0 14px 0;">
-                <span style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; background:{recommendation_bg}; color:{recommendation_fg}; font-size:1rem; font-weight:700;">{recommendation_label}</span>
-                <span style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; background:#d8e5ee; color:#1A3263; font-size:1rem; font-weight:700;">{score_text}</span>
-            </div>
-            <div class="summary-box">
-                <div style="font-weight:700; margin-bottom:10px;">Summary</div>
-                <div>{verdict.get("summary", "")}</div>
-                <div style="margin-top:12px;" class="muted">{verdict.get("recommendation_reasoning", "")}</div>
-            </div>
-            <div class="muted" style="margin-top:12px; font-size:0.86rem;">{verdict.get("disclaimer", DISCLAIM_TEXT)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_recommendation_card(verdict)
 
 
 def render_metric_card(title: str, value: str) -> None:
@@ -2480,6 +2628,227 @@ def render_metric_card(title: str, value: str) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_recommendation_card(verdict: dict[str, Any]) -> None:
+    recommendation = verdict.get("recommendation", "maybe")
+    recommendation_label = recommendation.replace("_", " ").title()
+    recommendation_styles = {
+        "strong_hire": ("#f2d0d0", "#8b2020"),
+        "hire": ("#f2d0d0", "#8b2020"),
+        "maybe": ("#fff0cc", "#8d5e11"),
+        "pass": ("#f2d0d0", "#8b2020"),
+    }
+    recommendation_bg, recommendation_fg = recommendation_styles.get(recommendation, ("#f2d0d0", "#8b2020"))
+    score_text = f"{verdict.get('overall_quality_score', 'N/A')} / 100"
+    container_id = f"recommendation-{uuid.uuid4().hex}"
+    animation_key = json.dumps(
+        {
+            "recommendation": recommendation,
+            "score": verdict.get("overall_quality_score"),
+            "summary": verdict.get("summary"),
+            "reasoning": verdict.get("recommendation_reasoning"),
+        },
+        sort_keys=True,
+        default=str,
+    )
+    html_block = f"""
+    <div id="{container_id}" class="recommendation-root">
+      <style>
+        #{container_id} .recommendation-card {{
+          background: #fffaf4;
+          border: 1.5px solid #e2c49a;
+          border-radius: 20px;
+          padding: 28px 32px;
+          box-sizing: border-box;
+          opacity: 0;
+          transform: translateY(12px);
+          transition: opacity 320ms ease, transform 320ms ease;
+        }}
+        #{container_id}.visible .recommendation-card {{
+          opacity: 1;
+          transform: translateY(0);
+        }}
+        #{container_id} .top-row {{
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+        }}
+        #{container_id} .eyebrow {{
+          color: #547792;
+          font-size: 0.76rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }}
+        #{container_id} .pill-row {{
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: wrap;
+        }}
+        #{container_id} .rec-pill {{
+          display: inline-flex;
+          align-items: center;
+          padding: 7px 14px;
+          border-radius: 999px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          opacity: 0;
+          transform: scale(0.84);
+          transition: opacity 300ms ease, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }}
+        #{container_id}.show-score .score-pill {{
+          opacity: 1;
+          transform: scale(1);
+        }}
+        #{container_id}.show-status .status-pill {{
+          opacity: 1;
+          transform: scale(1);
+        }}
+        #{container_id} .top-divider {{
+          height: 1px;
+          background: #e2c49a;
+          margin: 18px 0 20px 0;
+        }}
+        #{container_id} .summary-heading {{
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          color: #1A3263;
+          font-size: 0.8rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          margin-bottom: 14px;
+        }}
+        #{container_id} .summary-heading::after {{
+          content: "";
+          height: 1px;
+          background: #e2c49a;
+          flex: 1;
+        }}
+        #{container_id} .summary-box-wrap {{
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity 320ms ease, transform 320ms ease;
+        }}
+        #{container_id}.expand-summary .summary-box-wrap {{
+          opacity: 1;
+          transform: translateY(0);
+        }}
+        #{container_id} .summary-copy {{
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 13.5px;
+          line-height: 1.85;
+          color: #3a4a5c;
+        }}
+        #{container_id} .summary-copy + .summary-copy {{
+          margin-top: 14px;
+        }}
+        #{container_id} .disclaimer {{
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          border-top: 1px solid #e2c49a;
+          padding-top: 14px;
+          margin-top: 18px;
+          opacity: 0;
+          transition: opacity 260ms ease;
+        }}
+        #{container_id}.show-disclaimer .disclaimer {{
+          opacity: 1;
+        }}
+        #{container_id} .disclaimer-icon {{
+          width: 16px;
+          height: 16px;
+          color: #7e8a96;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }}
+        #{container_id} .disclaimer-copy {{
+          color: #7e8a96;
+          font-size: 0.84rem;
+          font-style: italic;
+          line-height: 1.55;
+        }}
+      </style>
+      <div class="recommendation-card" style="margin-top:16px;">
+        <div class="top-row">
+          <div class="eyebrow">Recommendation</div>
+          <div class="pill-row">
+            <span class="rec-pill score-pill" style="background:#1A3263; color:#FFC570;">{html.escape(score_text)}</span>
+            <span class="rec-pill status-pill" style="background:{recommendation_bg}; color:{recommendation_fg};">{html.escape(recommendation_label)}</span>
+          </div>
+        </div>
+        <div class="top-divider"></div>
+        <div class="summary-box-wrap">
+          <div class="summary-heading">Summary</div>
+          <div class="summary-copy">{html.escape(str(verdict.get("summary", "")))}</div>
+          <div class="summary-copy">{html.escape(str(verdict.get("recommendation_reasoning", "")))}</div>
+        </div>
+        <div class="disclaimer">
+          <svg class="disclaimer-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"></circle>
+            <path d="M8 7.1V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+            <circle cx="8" cy="4.6" r="0.9" fill="currentColor"></circle>
+          </svg>
+          <div class="disclaimer-copy">{html.escape(str(verdict.get("disclaimer", DISCLAIM_TEXT)))}</div>
+          </div>
+      </div>
+    </div>
+    <script>
+      const root = document.getElementById({json.dumps(container_id)});
+      const animationKey = "codelens-recommendation-" + {json.dumps(animation_key)};
+      const alreadyPlayed = sessionStorage.getItem(animationKey) === 'done';
+      function setFrameHeight(height) {{
+        try {{
+          if (window.Streamlit && typeof window.Streamlit.setFrameHeight === 'function') {{
+            window.Streamlit.setFrameHeight(height);
+            return;
+          }}
+        }} catch (e) {{}}
+        try {{
+          window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height }}, '*');
+        }} catch (e) {{}}
+      }}
+      function refreshHeight() {{
+        setFrameHeight(Math.max(420, root.scrollHeight + 24));
+      }}
+      function runSequence() {{
+        root.classList.add('visible');
+        setTimeout(() => {{
+          root.classList.add('show-score');
+          refreshHeight();
+        }}, 1900);
+        setTimeout(() => {{
+          root.classList.add('show-status');
+          refreshHeight();
+        }}, 2150);
+        setTimeout(() => {{
+          root.classList.add('expand-summary');
+          refreshHeight();
+        }}, 2450);
+        setTimeout(() => {{
+          root.classList.add('show-disclaimer');
+          refreshHeight();
+          sessionStorage.setItem(animationKey, 'done');
+        }}, 2760);
+      }}
+      if (alreadyPlayed) {{
+        root.classList.add('visible', 'show-score', 'show-status', 'expand-summary', 'show-disclaimer');
+        refreshHeight();
+      }} else {{
+        runSequence();
+      }}
+      window.addEventListener('resize', refreshHeight);
+      new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
+      refreshHeight();
+    </script>
+    """
+    components.html(html_block, height=520, scrolling=False)
 
 
 def render_analyze_tab() -> None:
