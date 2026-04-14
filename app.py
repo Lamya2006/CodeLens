@@ -253,6 +253,11 @@ def inject_global_styles() -> None:
 
             [data-testid="stSidebar"] > div:first-child {{
                 background: transparent;
+                padding-top: 0 !important;
+            }}
+
+            [data-testid="stSidebar"] section[data-testid="stSidebarNav"] {{
+                padding-top: 0 !important;
             }}
 
             .block-container {{
@@ -1010,8 +1015,12 @@ def inject_global_styles() -> None:
             .cl-brand-tagline--sidebar {{
                 font-size: 11px;
                 line-height: 1.45;
-                margin-top: 10px;
+                margin-top: 6px;
                 color: var(--text-muted);
+            }}
+
+            [data-testid="stSidebar"] .cl-sidebar-brand {{
+                margin-top: 0 !important;
             }}
 
             .app-header {{
@@ -1542,7 +1551,7 @@ def render_sidebar() -> None:
     with st.sidebar:
         st.markdown(
             f"""
-            <div style="padding:20px 8px 12px 8px;">
+            <div class="cl-sidebar-brand" style="padding:6px 8px 10px 8px;">
                 <div class="cl-brand-title-row">
                     <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=26)}</div>
                     <div class="cl-wordmark" style="font-size:1.35rem;"><span>Code</span><span>Lens</span></div>
@@ -1554,10 +1563,10 @@ def render_sidebar() -> None:
         )
         if "cl_appearance_toggle" not in st.session_state:
             st.session_state.cl_appearance_toggle = st.session_state.get("theme", "light") == "dark"
-        _tc1, _tc2, _tc3 = st.columns([1, 3, 1])
+        _tc1, _tc2, _tc3 = st.columns([1, 2.85, 0.4])
         with _tc1:
             st.markdown(
-                '<div style="display:flex; justify-content:flex-end; align-items:center; height:38px; padding-right:4px;">'
+                '<div style="display:flex; justify-content:flex-end; align-items:center; height:38px; padding-right:2px;">'
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
                 '<circle cx="12" cy="12" r="5"/>'
                 '<line x1="12" y1="1" x2="12" y2="3"/>'
@@ -1575,7 +1584,7 @@ def render_sidebar() -> None:
             st.toggle("Appearance", key="cl_appearance_toggle", label_visibility="collapsed")
         with _tc3:
             st.markdown(
-                '<div style="display:flex; justify-content:flex-start; align-items:center; height:38px; padding-left:4px;">'
+                '<div class="cl-sidebar-moon-icon" style="display:flex; justify-content:flex-start; align-items:center; height:38px; padding-left:0; margin-left:-14px;">'
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
                 '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
                 '</svg></div>',
@@ -4476,10 +4485,76 @@ def render_knowledge_graph(result: dict[str, Any]) -> None:
                     break
 
     # ── Tag file nodes that have viewable content ──────────────────────────────
+    # ── Extract symbol snippets (function / class bodies) ─────────────────────
+    import re as _re
+
+    def _extract_symbol(lines: list, name: str, sym_type: str, ext: str) -> str | None:
+        MAX_BODY = 120
+        if ext == "py":
+            pat = _re.compile(r'^\s*(async\s+)?def\s+' + _re.escape(name) + r'\s*[\(:]') \
+                if sym_type == "function" else \
+                _re.compile(r'^\s*class\s+' + _re.escape(name) + r'\s*[:(]')
+        elif ext in ("js", "ts", "jsx", "tsx"):
+            pat = _re.compile(
+                r'(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+' + _re.escape(name) + r'\b'
+                r'|(?:export\s+)?(?:const|let|var)\s+' + _re.escape(name) + r'\s*='
+                r'|class\s+' + _re.escape(name) + r'\b'
+            )
+        else:
+            pat = _re.compile(r'(?:def|function|class|func)\s+' + _re.escape(name) + r'\b')
+
+        start = next((i for i, ln in enumerate(lines) if pat.search(ln)), None)
+        if start is None:
+            start = next((i for i, ln in enumerate(lines) if name in ln), None)
+        if start is None:
+            return None
+
+        start_indent = len(lines[start]) - len(lines[start].lstrip())
+        result = [lines[start]]
+        for i in range(start + 1, min(start + MAX_BODY, len(lines))):
+            ln = lines[i]
+            stripped = ln.lstrip()
+            indent = len(ln) - len(stripped) if stripped else start_indent + 1
+            if stripped and indent <= start_indent and i > start + 1:
+                if _re.match(r'(async\s+)?def |class |function |export |module\.exports|@\w', stripped):
+                    break
+            result.append(ln)
+        return "\n".join(result)
+
+    for sym_type, sym_list in (("function", function_list), ("class", class_list)):
+        for s in sym_list:
+            sfp = s.get("file_path", "")
+            sname = s.get("name", "")
+            sid = f"sym:{sfp}:{sname}"
+            if not sfp or not sname or sid in file_content_map:
+                continue
+            file_fc = file_content_map.get(sfp)
+            if not file_fc:
+                continue
+            ext = file_fc.get("ext", "")
+            lang = file_fc.get("lang", "plaintext")
+            all_lines = file_fc["content"].splitlines()
+            snippet = _extract_symbol(all_lines, sname, sym_type, ext)
+            if snippet:
+                snippet_lines = snippet.splitlines()
+                file_content_map[sid] = {
+                    "content": snippet,
+                    "truncated": False,
+                    "total_lines": len(snippet_lines),
+                    "lang": lang,
+                    "ext": ext,
+                    "is_symbol": True,
+                    "sym_type": sym_type,
+                    "sym_name": sname,
+                    "file_path": sfp,
+                }
+
     for n in nodes:
         if n["type"] == "file":
             fp = n.get("full_path", "")
             n["has_content"] = fp in file_content_map
+        elif n["type"] in ("function", "class"):
+            n["has_content"] = n.get("id", "") in file_content_map
 
     # ── Serialize — escape </ so file content can't break the script tag ───────
     def _safe_json(obj: Any) -> str:
@@ -4875,13 +4950,21 @@ def render_knowledge_graph(result: dict[str, Any]) -> None:
       const codeEl = document.getElementById('{container_id}-modal-code');
 
       function openCodeModal(d) {{
-        const fc = FILE_CONTENTS[d.full_path];
+        const key = d.full_path || d.id;
+        const fc = FILE_CONTENTS[key];
         if (!fc) return false;
-        codeModalTitle.textContent = d.full_path || d.label;
-        codeModalLang.textContent = fc.lang || d.ext || 'text';
-        codeModalTrunc.textContent = fc.truncated
-          ? 'Showing first ' + {MAX_LINES_PER_FILE} + ' of ' + fc.total_lines + ' lines'
-          : fc.total_lines + ' lines';
+        if (fc.is_symbol) {{
+          const prefix = fc.sym_type === 'class' ? 'class ' : 'def ';
+          codeModalTitle.textContent = prefix + fc.sym_name;
+          codeModalLang.textContent = fc.lang || 'text';
+          codeModalTrunc.textContent = fc.total_lines + ' lines · ' + (fc.file_path || '');
+        }} else {{
+          codeModalTitle.textContent = d.full_path || d.label;
+          codeModalLang.textContent = fc.lang || d.ext || 'text';
+          codeModalTrunc.textContent = fc.truncated
+            ? 'Showing first ' + {MAX_LINES_PER_FILE} + ' of ' + fc.total_lines + ' lines'
+            : fc.total_lines + ' lines';
+        }}
         codeEl.className = 'language-' + (fc.lang || 'plaintext');
         codeEl.textContent = fc.content;
         if (window.hljs) {{ window.hljs.highlightElement(codeEl); }}
@@ -4902,8 +4985,8 @@ def render_knowledge_graph(result: dict[str, Any]) -> None:
       nodeSel.on('click', (event, d) => {{
         event.stopPropagation();
         tip.style.display = 'none';
-        // File nodes with content → open code modal
-        if (d.type === 'file' && d.has_content) {{
+        // File / function / class nodes with content → open code modal
+        if (d.has_content) {{
           openCodeModal(d);
           return;
         }}
@@ -5003,7 +5086,7 @@ def render_knowledge_graph(result: dict[str, Any]) -> None:
           const badgeStyle = TYPE_BADGE_STYLE[d.type] || '';
           const typeLabel = d.type === 'function' ? 'def' : d.type;
           const subLine = d.full_path || d.file_path || d.full_label || '';
-          const hasCode = d.type === 'file' && d.has_content;
+          const hasCode = d.has_content;
           const extra = d.child_count
             ? '<div style="opacity:0.55;font-size:10px;margin-top:3px;">' + d.child_count + ' direct files</div>'
             : (d.ext ? '<div style="opacity:0.55;font-size:10px;margin-top:3px;">.' + d.ext + '</div>' : '');
