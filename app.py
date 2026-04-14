@@ -2110,6 +2110,7 @@ def _build_ai_usage_card_lists(result: dict[str, Any]) -> tuple[list[str], list[
 
 
 def render_gauge_results_row(result: dict[str, Any]) -> None:
+    is_dark = st.session_state.get("theme", "light") == "dark"
     payload = [
         {
             "title": item["title"],
@@ -2124,6 +2125,12 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
     ]
     container_id = f"gauge-row-{uuid.uuid4().hex}"
     theme_css = _iframe_theme_css()
+    tooltip_bg = "#1E1E1E" if is_dark else "rgba(255, 255, 255, 0.9)"
+    tooltip_text = "#F8FAFC" if is_dark else "#0F172A"
+    tooltip_border = "var(--accent-blue)" if is_dark else "rgba(79, 70, 229, 0.2)"
+    tooltip_shadow = "0 18px 34px rgba(26, 50, 99, 0.18)" if is_dark else "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
+    tooltip_backdrop = "none" if is_dark else "blur(8px)"
+    portal_tooltip_border = "1.5px solid var(--accent-blue)" if is_dark else "1px solid rgba(79, 70, 229, 0.2)"
     html_block = f"""
     <div id="{container_id}" class="codelens-gauges-root">
       <style>
@@ -2193,12 +2200,14 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           left: 0;
           top: 0;
           width: min(280px, calc(100vw - 48px));
-          background: #1E1E1E;
-          border: 1.5px solid var(--accent-blue);
+          background: {tooltip_bg};
+          border: 1px solid {tooltip_border};
           border-radius: 16px;
-          box-shadow: 0 18px 34px rgba(26, 50, 99, 0.18);
+          box-shadow: {tooltip_shadow};
           padding: 14px 16px;
           z-index: 40;
+          backdrop-filter: {tooltip_backdrop};
+          -webkit-backdrop-filter: {tooltip_backdrop};
           opacity: 0;
           visibility: hidden;
           transform: translateY(8px);
@@ -2214,14 +2223,16 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           font-size: 0.74rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: #F8FAFC;
+          color: {"var(--accent-blue)" if not is_dark else tooltip_text};
           margin-bottom: 8px;
           font-weight: 800;
+          border-bottom: 1px solid {"rgba(15, 23, 42, 0.1)" if not is_dark else "transparent"};
+          padding-bottom: 8px;
         }}
         #{container_id} .tooltip-copy {{
           margin: 0;
           padding-left: 18px;
-          color: #F8FAFC;
+          color: {tooltip_text};
           font-size: 0.88rem;
           line-height: 1.45;
         }}
@@ -2277,12 +2288,14 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           portalTooltip.style.left = '0px';
           portalTooltip.style.top = '0px';
           portalTooltip.style.width = 'min(280px, calc(100vw - 48px))';
-          portalTooltip.style.background = '#1E1E1E';
-          portalTooltip.style.border = '1.5px solid ' + (cs.getPropertyValue('--accent-blue').trim() || '#60A5FA');
+          portalTooltip.style.background = {json.dumps(tooltip_bg)};
+          portalTooltip.style.border = {json.dumps(portal_tooltip_border)};
           portalTooltip.style.borderRadius = '16px';
-          portalTooltip.style.boxShadow = '0 18px 34px rgba(26, 50, 99, 0.18)';
+          portalTooltip.style.boxShadow = {json.dumps(tooltip_shadow)};
           portalTooltip.style.padding = '14px 16px';
           portalTooltip.style.zIndex = '999999';
+          portalTooltip.style.backdropFilter = {json.dumps(tooltip_backdrop)};
+          portalTooltip.style.webkitBackdropFilter = {json.dumps(tooltip_backdrop)};
           portalTooltip.style.opacity = '0';
           portalTooltip.style.visibility = 'hidden';
           portalTooltip.style.transform = 'translateY(8px)';
@@ -2425,10 +2438,10 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
             .cl-gauge-tip-list li {{ margin-bottom: 6px; }}
             .cl-gauge-tip-list li:last-child {{ margin-bottom: 0; }}
           </style>
-          <div style="font-size:0.74rem; text-transform:uppercase; letter-spacing:0.08em; color:#F8FAFC; margin-bottom:8px; font-weight:800;">
+          <div style="font-size:0.74rem; text-transform:uppercase; letter-spacing:0.08em; color:${json.dumps('#F8FAFC' if is_dark else '#4F46E5')}; margin-bottom:8px; font-weight:800; border-bottom:${json.dumps('1px solid rgba(15, 23, 42, 0.1)' if not is_dark else 'none')}; padding-bottom:8px;">
             ${{metric.title}} Analysis
           </div>
-          <ul class="cl-gauge-tip-list" style="margin:0; padding-left:18px; color:#F8FAFC; font-size:0.88rem; line-height:1.45;">
+          <ul class="cl-gauge-tip-list" style="margin:0; padding-left:18px; color:${json.dumps(tooltip_text)}; font-size:0.88rem; line-height:1.45;">
             ${{metric.detail_html}}
           </ul>
         `;
