@@ -180,9 +180,9 @@ def inject_global_styles() -> None:
             --glass-border-subtle: rgba(15, 23, 42, 0.12);
             --glass-shadow: 0 8px 32px rgba(100, 160, 255, 0.12), 0 2px 8px rgba(79, 70, 229, 0.08);
             --top-edge-highlight: rgba(255, 255, 255, 0.8);
-            --accent-blue: #4F46E5;
-            --accent-blue-hover: #6366F1;
-            --accent-blue-light: rgba(79, 70, 229, 0.14);
+            --accent-blue: #2596BE;
+            --accent-blue-hover: #1E7BA0;
+            --accent-blue-light: rgba(37, 150, 190, 0.14);
             --text-primary: #0F172A;
             --text-secondary: rgba(15, 23, 42, 0.78);
             --text-muted: rgba(15, 23, 42, 0.52);
