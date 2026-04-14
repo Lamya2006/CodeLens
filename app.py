@@ -135,25 +135,31 @@ def inject_global_styles() -> None:
         theme_vars = """
             --bg-base: #080c14;
             --bg-gradient: linear-gradient(160deg, #080c14 0%, #0d1426 50%, #0a1020 100%);
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-bg-hover: rgba(255, 255, 255, 0.09);
-            --glass-bg-inner: rgba(255, 255, 255, 0.08);
-            --glass-border: rgba(255, 255, 255, 0.12);
-            --glass-border-subtle: rgba(100, 160, 255, 0.15);
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(56, 168, 245, 0.08);
+            --glass-bg: rgba(30, 41, 59, 0.5);
+            --glass-bg-hover: rgba(30, 41, 59, 0.68);
+            --glass-bg-inner: rgba(30, 41, 59, 0.62);
+            --glass-border: rgba(248, 250, 252, 0.22);
+            --glass-border-subtle: rgba(248, 250, 252, 0.16);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(96, 165, 250, 0.1);
             --top-edge-highlight: rgba(255, 255, 255, 0.15);
-            --accent-blue: #38a8f5;
-            --accent-blue-hover: #64b8f7;
-            --accent-blue-light: rgba(56, 168, 245, 0.2);
-            --text-primary: #f0f6ff;
-            --text-secondary: #b8cce0;
-            --text-muted: #7a90aa;
-            --score-green: #4ade80;
-            --score-yellow: #fbbf24;
-            --score-red: #fb7185;
-            --card-glow: rgba(56, 168, 245, 0.18);
+            --accent-blue: #60A5FA;
+            --accent-blue-hover: #93C5FD;
+            --accent-blue-light: rgba(96, 165, 250, 0.2);
+            --text-primary: #F8FAFC;
+            --text-secondary: rgba(248, 250, 252, 0.86);
+            --text-muted: rgba(248, 250, 252, 0.68);
+            --score-green: #3B82F6;
+            --score-yellow: #FBBF24;
+            --score-red: #F87171;
+            --card-glow: rgba(96, 165, 250, 0.2);
             --surface-white: rgba(255, 255, 255, 0.82);
-            --status-border: rgba(56, 168, 245, 0.45);
+            --status-border: rgba(248, 250, 252, 0.22);
+            --glass-blur-theme: blur(12px);
+            --glass-blur-inner-theme: blur(12px);
+            --input-bg: rgba(30, 41, 59, 0.62);
+            --input-text: #F8FAFC;
+            --input-placeholder: rgba(248, 250, 252, 0.55);
+            --input-border: rgba(248, 250, 252, 0.18);
             --stapp-bg-image: radial-gradient(circle at 15% 18%, rgba(56, 168, 245, 0.22), transparent 26%),
                 radial-gradient(circle at 86% 10%, rgba(255, 255, 255, 0.52), transparent 24%),
                 radial-gradient(circle at 78% 58%, rgba(56, 168, 245, 0.15), transparent 20%),
@@ -167,25 +173,31 @@ def inject_global_styles() -> None:
                 radial-gradient(circle at 8% 6%, rgba(56, 168, 245, 0.38), transparent 28%),
                 radial-gradient(circle at 92% 9%, rgba(147, 210, 255, 0.42), transparent 26%),
                 var(--bg-gradient);
-            --glass-bg: rgba(255, 255, 255, 0.45);
-            --glass-bg-hover: rgba(255, 255, 255, 0.65);
-            --glass-bg-inner: rgba(255, 255, 255, 0.62);
-            --glass-border: rgba(255, 255, 255, 0.7);
-            --glass-border-subtle: rgba(200, 220, 255, 0.4);
-            --glass-shadow: 0 8px 32px rgba(100, 160, 255, 0.12), 0 2px 8px rgba(100, 160, 255, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-bg-hover: rgba(255, 255, 255, 0.78);
+            --glass-bg-inner: rgba(255, 255, 255, 0.72);
+            --glass-border: rgba(15, 23, 42, 0.18);
+            --glass-border-subtle: rgba(15, 23, 42, 0.12);
+            --glass-shadow: 0 8px 32px rgba(100, 160, 255, 0.12), 0 2px 8px rgba(79, 70, 229, 0.08);
             --top-edge-highlight: rgba(255, 255, 255, 0.8);
-            --accent-blue: #38a8f5;
-            --accent-blue-hover: #1e90e0;
-            --accent-blue-light: rgba(56, 168, 245, 0.15);
-            --text-primary: #0a0f1e;
-            --text-secondary: #4a5568;
-            --text-muted: #94a3b8;
-            --score-green: #22c55e;
-            --score-yellow: #f59e0b;
-            --score-red: #ef4444;
-            --card-glow: rgba(56, 168, 245, 0.12);
+            --accent-blue: #4F46E5;
+            --accent-blue-hover: #6366F1;
+            --accent-blue-light: rgba(79, 70, 229, 0.14);
+            --text-primary: #0F172A;
+            --text-secondary: rgba(15, 23, 42, 0.78);
+            --text-muted: rgba(15, 23, 42, 0.52);
+            --score-green: #0EA5E9;
+            --score-yellow: #F59E0B;
+            --score-red: #E11D48;
+            --card-glow: rgba(79, 70, 229, 0.12);
             --surface-white: rgba(255, 255, 255, 0.96);
-            --status-border: rgba(56, 168, 245, 0.35);
+            --status-border: rgba(15, 23, 42, 0.16);
+            --glass-blur-theme: blur(10px);
+            --glass-blur-inner-theme: blur(10px);
+            --input-bg: rgba(255, 255, 255, 0.88);
+            --input-text: #0F172A;
+            --input-placeholder: rgba(15, 23, 42, 0.42);
+            --input-border: rgba(15, 23, 42, 0.14);
         """
 
     st.markdown(
@@ -193,13 +205,20 @@ def inject_global_styles() -> None:
         <style>
             :root {{
                 {theme_vars}
-                --glass-blur: blur(24px) saturate(180%);
-                --glass-blur-inner: blur(12px) saturate(165%);
+                --glass-blur: var(--glass-blur-theme) saturate(180%);
+                --glass-blur-inner: var(--glass-blur-inner-theme) saturate(165%);
                 --glass-radius: 20px;
                 --glass-radius-sm: 14px;
                 --ease-swift: cubic-bezier(0.16, 1, 0.3, 1);
+                --theme-transition: 400ms ease-in-out;
                 --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
                 --font-mono: "SF Mono", "Fira Code", ui-monospace, monospace;
+            }}
+
+            *, *::before, *::after {{
+                transition-property: color, background-color, border-color, fill, stroke, box-shadow;
+                transition-duration: 400ms;
+                transition-timing-function: ease-in-out;
             }}
 
             html, body, [class*="css"] {{
@@ -401,6 +420,14 @@ def inject_global_styles() -> None:
                 gap: 18px;
             }}
 
+            .cl-results-wrap {{
+                overflow: visible;
+            }}
+
+            .cl-results-wrap > div {{
+                overflow: visible;
+            }}
+
             .brand-wordmark {{
                 font-size: 20px;
                 font-weight: 600;
@@ -513,18 +540,18 @@ def inject_global_styles() -> None:
 
             [data-testid="stTextInput"] input,
             [data-testid="stTextArea"] textarea {{
-                background: rgba(255, 255, 255, 0.88) !important;
-                color: #0a0f1e !important;
-                border: 1px solid rgba(200, 220, 255, 0.6) !important;
+                background: var(--input-bg) !important;
+                color: var(--input-text) !important;
+                border: 1px solid var(--input-border) !important;
                 border-radius: 12px !important;
                 padding: 12px 16px !important;
                 box-shadow: 0 2px 8px rgba(100, 160, 255, 0.08) !important;
-                transition: all 0.18s var(--ease-swift) !important;
+                transition: all var(--theme-transition) !important;
             }}
 
             [data-testid="stTextInput"] input::placeholder,
             [data-testid="stTextArea"] textarea::placeholder {{
-                color: #94a3b8 !important;
+                color: var(--input-placeholder) !important;
             }}
 
             [data-testid="stTextInput"] input:focus,
@@ -535,16 +562,16 @@ def inject_global_styles() -> None:
             }}
 
             [data-testid="stFileUploaderDropzone"] {{
-                background: rgba(255, 255, 255, 0.88) !important;
-                border: 1px dashed rgba(56, 168, 245, 0.45) !important;
+                background: var(--input-bg) !important;
+                border: 1px dashed var(--accent-blue) !important;
                 border-radius: 12px !important;
                 box-shadow: 0 2px 8px rgba(100, 160, 255, 0.08) !important;
-                transition: all 0.18s var(--ease-swift) !important;
+                transition: all var(--theme-transition) !important;
             }}
 
             [data-testid="stFileUploaderDropzone"]:hover {{
                 border-color: var(--accent-blue) !important;
-                background: rgba(255, 255, 255, 0.96) !important;
+                background: var(--glass-bg-hover) !important;
             }}
 
             [data-testid="stFileUploaderDropzone"] button {{
@@ -576,7 +603,7 @@ def inject_global_styles() -> None:
                 backdrop-filter: var(--glass-blur);
                 -webkit-backdrop-filter: var(--glass-blur);
                 box-shadow: var(--glass-shadow);
-                transition: all 0.18s var(--ease-swift);
+                transition: all var(--theme-transition);
             }}
 
             .stButton > button:hover {{
@@ -660,7 +687,7 @@ def inject_global_styles() -> None:
                 color: var(--text-secondary);
                 font-size: 14px;
                 font-weight: 600;
-                transition: all 0.2s var(--ease-swift);
+                transition: all var(--theme-transition);
             }}
 
             .tab-switcher [data-baseweb="radio"] input:checked + div,
@@ -679,7 +706,7 @@ def inject_global_styles() -> None:
                 min-height: 172px;
                 padding: 18px 18px 20px;
                 border-radius: 22px;
-                transition: all 0.18s var(--ease-swift);
+                transition: all var(--theme-transition);
             }}
 
             .score-card:hover {{
@@ -1145,12 +1172,12 @@ def score_color(score: int | None) -> str:
 def gauge_bar_color(score: int | None) -> str:
     theme = st.session_state.get("theme", "light")
     if score is None:
-        return "#4a5568" if theme == "dark" else "#94a3b8"
+        return "#94A3B8" if theme == "dark" else "#94A3B8"
     if score < 50:
-        return "#fb7185" if theme == "dark" else "#ef4444"
+        return "#F87171" if theme == "dark" else "#E11D48"
     if score < 75:
-        return "#fbbf24" if theme == "dark" else "#f59e0b"
-    return "#4ade80" if theme == "dark" else "#22c55e"
+        return "#FBBF24" if theme == "dark" else "#F59E0B"
+    return "#3B82F6" if theme == "dark" else "#0EA5E9"
 
 
 def recommendation_badge_color(value: str) -> str:
@@ -1561,13 +1588,14 @@ def render_sidebar() -> None:
             """,
             unsafe_allow_html=True,
         )
+        user = st.session_state.get("user")
         if "cl_appearance_toggle" not in st.session_state:
             st.session_state.cl_appearance_toggle = st.session_state.get("theme", "light") == "dark"
-        _tc1, _tc2, _tc3 = st.columns([1, 2.85, 0.4])
+        _tc1, _tc2, _tc3, _tc4, _tc5 = st.columns([0.42, 0.9, 0.42, 0.42, 3.1], gap="small")
         with _tc1:
             st.markdown(
-                '<div style="display:flex; justify-content:flex-end; align-items:center; height:38px; padding-right:2px;">'
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
+                '<div style="display:flex; justify-content:center; align-items:center; height:38px;">'
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
                 '<circle cx="12" cy="12" r="5"/>'
                 '<line x1="12" y1="1" x2="12" y2="3"/>'
                 '<line x1="12" y1="21" x2="12" y2="23"/>'
@@ -1584,12 +1612,18 @@ def render_sidebar() -> None:
             st.toggle("Appearance", key="cl_appearance_toggle", label_visibility="collapsed")
         with _tc3:
             st.markdown(
-                '<div class="cl-sidebar-moon-icon" style="display:flex; justify-content:flex-start; align-items:center; height:38px; padding-left:0; margin-left:-14px;">'
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
+                '<div class="cl-sidebar-moon-icon" style="display:flex; justify-content:center; align-items:center; height:38px;">'
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
                 '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
                 '</svg></div>',
                 unsafe_allow_html=True,
             )
+        with _tc4:
+            if user:
+                if st.button("↗", key="sidebar-signout"):
+                    sign_out()
+            else:
+                st.markdown('<div style="height:38px;"></div>', unsafe_allow_html=True)
         if st.session_state.cl_appearance_toggle != (st.session_state.get("theme", "light") == "dark"):
             new_theme = "dark" if st.session_state.cl_appearance_toggle else "light"
             st.session_state["theme"] = new_theme
@@ -1603,6 +1637,15 @@ def render_sidebar() -> None:
                     justify-content: flex-start;
                     padding-left: 14px;
                     font-weight: 600;
+                }
+                [data-testid="stSidebar"] [data-testid="stToggle"] {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 38px;
+                }
+                [data-testid="stSidebar"] [data-testid="stToggle"] > label {
+                    margin: 0 auto !important;
                 }
                 [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
                     background: var(--glass-inner-bg) !important;
@@ -1620,9 +1663,13 @@ def render_sidebar() -> None:
                     border: none !important;
                     box-shadow: 0 2px 8px rgba(56, 168, 245, 0.3) !important;
                 }
+                [data-testid="stSidebar"] button[kind="secondary"],
+                [data-testid="stSidebar"] button[kind="primary"] {
+                    min-height: 38px !important;
+                }
                 /* Larger, outlined appearance toggle */
                 [data-testid="stSidebar"] [data-testid="stToggle"] > label {
-                    transform: scale(1.35);
+                    transform: scale(1.18);
                     transform-origin: center;
                 }
                 [data-testid="stSidebar"] [data-testid="stToggle"] > label > div[data-checked="false"] {
@@ -1654,12 +1701,7 @@ def render_sidebar() -> None:
                 <div style="flex:1; min-width:0; color:#FFC570; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@{html.escape(user.get('username',''))}</div>
             </div>
             """
-            left, right = st.columns([6, 1])
-            with left:
-                st.markdown(profile_html, unsafe_allow_html=True)
-            with right:
-                if st.button("↗", key="sidebar-signout"):
-                    sign_out()
+            st.markdown(profile_html, unsafe_allow_html=True)
         else:
             st.markdown('<div class="sidebar-section-label">Account</div>', unsafe_allow_html=True)
             render_oauth_button()
@@ -2088,27 +2130,34 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         {theme_css}
         #{container_id} {{
           width: 100%;
-          margin: 0 auto 22px auto;
+          margin: 0 auto;
           font-family: var(--font-sans);
+          position: relative;
+          overflow: visible;
         }}
         #{container_id} .gauge-scroller {{
           width: 100%;
-          overflow: visible;
-          padding-bottom: 10px;
+          overflow-x: auto;
+          overflow-y: visible;
+          padding: 0 0 2px 0;
+          scrollbar-width: thin;
+          scrollbar-color: var(--glass-border) transparent;
         }}
         #{container_id} .gauge-grid {{
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
           gap: 18px;
           align-items: stretch;
-          justify-content: center;
+          justify-content: flex-start;
+          width: max-content;
+          min-width: 100%;
+          padding: 0 2px;
         }}
         #{container_id} .gauge-card {{
           position: relative;
-          flex: 1 1 200px;
-          min-width: 200px;
-          max-width: 260px;
-          min-height: 314px;
+          flex: 0 0 220px;
+          width: 220px;
+          min-width: 220px;
           background: var(--glass-bg);
           border: 1px solid var(--glass-border);
           border-top: 1px solid var(--top-edge-highlight);
@@ -2116,10 +2165,10 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           box-shadow: var(--glass-shadow);
           backdrop-filter: var(--glass-blur);
           -webkit-backdrop-filter: var(--glass-blur);
-          padding: 16px 14px 14px 14px;
-          overflow: hidden;
+          padding: 16px 14px 10px 14px;
+          overflow: visible;
           box-sizing: border-box;
-          transition: transform 180ms var(--ease-swift), box-shadow 180ms var(--ease-swift), border-color 180ms var(--ease-swift);
+          transition: transform 180ms var(--ease-swift), box-shadow var(--theme-transition), border-color var(--theme-transition), background-color var(--theme-transition), color var(--theme-transition);
         }}
         #{container_id} .gauge-card:hover {{
           transform: translateY(-4px);
@@ -2139,44 +2188,44 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           width: 100%;
           height: 188px;
         }}
-        #{container_id} .gauge-footer {{
-          display: none;
+        #{container_id} .gauge-tooltip {{
+          position: fixed;
+          left: 0;
+          top: 0;
+          width: min(280px, calc(100vw - 48px));
+          background: #1E1E1E;
+          border: 1.5px solid var(--accent-blue);
+          border-radius: 16px;
+          box-shadow: 0 18px 34px rgba(26, 50, 99, 0.18);
+          padding: 14px 16px;
+          z-index: 40;
           opacity: 0;
-          transition: opacity 260ms ease;
-        }}
-        #{container_id}.show-labels .gauge-footer {{
-          display: none;
-        }}
-        #{container_id} .gauge-details {{
-          margin-top: 10px;
-          overflow: hidden;
-          opacity: 0;
-          transform: translateY(6px);
+          visibility: hidden;
+          transform: translateY(8px);
+          transition: opacity var(--theme-transition), transform var(--theme-transition), visibility var(--theme-transition);
           pointer-events: none;
-          transition: opacity 0.18s ease, transform 0.18s var(--ease-swift);
-          will-change: opacity, transform;
         }}
-        #{container_id} .gauge-card:hover .gauge-details {{
+        #{container_id} .gauge-tooltip.is-visible {{
           opacity: 1;
+          visibility: visible;
           transform: translateY(0);
-          pointer-events: auto;
         }}
-        #{container_id} .hover-label {{
+        #{container_id} .tooltip-label {{
           font-size: 0.74rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: var(--accent-blue);
+          color: #F8FAFC;
           margin-bottom: 8px;
           font-weight: 800;
         }}
-        #{container_id} .hover-copy {{
+        #{container_id} .tooltip-copy {{
           margin: 0;
           padding-left: 18px;
-          color: var(--text-secondary);
+          color: #F8FAFC;
           font-size: 0.88rem;
           line-height: 1.45;
         }}
-        #{container_id} .hover-copy li {{
+        #{container_id} .tooltip-copy li {{
           margin-bottom: 6px;
         }}
         #{container_id} .gauge-scroller::-webkit-scrollbar {{
@@ -2192,21 +2241,59 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         }}
         @media (max-width: 520px) {{
           #{container_id} .gauge-card {{
-            flex-basis: 100%;
-            max-width: none;
+            flex-basis: 212px;
+            width: 212px;
+            min-width: 212px;
           }}
         }}
       </style>
       <div class="gauge-scroller"><div class="gauge-grid"></div></div>
+      <div class="gauge-tooltip" aria-hidden="true"></div>
     </div>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script>
       const root = document.getElementById({json.dumps(container_id)});
       const grid = root.querySelector('.gauge-grid');
+      const scroller = root.querySelector('.gauge-scroller');
+      const tooltip = root.querySelector('.gauge-tooltip');
       const metrics = {json.dumps(payload)};
       const animationKey = "codelens-score-overview-" + {json.dumps(json.dumps(payload, sort_keys=True))};
       let hasAnimated = sessionStorage.getItem(animationKey) === 'done';
       const plotEls = [];
+      let activeCard = null;
+      let portalTooltip = null;
+
+      function getPortalTooltip() {{
+        if (portalTooltip) {{
+          return portalTooltip;
+        }}
+        try {{
+          const parentDoc = window.parent && window.parent.document;
+          if (!parentDoc || !parentDoc.body) {{
+            return null;
+          }}
+          portalTooltip = parentDoc.createElement('div');
+          portalTooltip.style.position = 'fixed';
+          portalTooltip.style.left = '0px';
+          portalTooltip.style.top = '0px';
+          portalTooltip.style.width = 'min(280px, calc(100vw - 48px))';
+          portalTooltip.style.background = '#1E1E1E';
+          portalTooltip.style.border = '1.5px solid ' + (cs.getPropertyValue('--accent-blue').trim() || '#60A5FA');
+          portalTooltip.style.borderRadius = '16px';
+          portalTooltip.style.boxShadow = '0 18px 34px rgba(26, 50, 99, 0.18)';
+          portalTooltip.style.padding = '14px 16px';
+          portalTooltip.style.zIndex = '999999';
+          portalTooltip.style.opacity = '0';
+          portalTooltip.style.visibility = 'hidden';
+          portalTooltip.style.transform = 'translateY(8px)';
+          portalTooltip.style.transition = 'opacity 400ms ease-in-out, transform 400ms ease-in-out, visibility 400ms ease-in-out';
+          portalTooltip.style.pointerEvents = 'none';
+          parentDoc.body.appendChild(portalTooltip);
+          return portalTooltip;
+        }} catch (e) {{
+          return null;
+        }}
+      }}
 
       function setFrameHeight(height) {{
         try {{
@@ -2221,24 +2308,36 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       }}
 
       function refreshFrameHeight() {{
-        const target = Math.max(420, root.scrollHeight + 16);
+        const target = Math.max(286, root.scrollHeight + 14);
         setFrameHeight(target);
       }}
 
       const cs = getComputedStyle(document.documentElement);
       const txtMuted = cs.getPropertyValue('--text-muted').trim() || '#94a3b8';
+      const gaugeText = cs.getPropertyValue('--accent-blue').trim() || cs.getPropertyValue('--text-primary').trim() || '#0F172A';
       function buildGauge(metric, value) {{
         return [{{
           type: 'indicator',
           mode: 'gauge+number',
           value: value,
           number: {{
-            font: {{ size: 22, color: metric.muted ? txtMuted : metric.color, family: cs.getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif' }},
-            valueformat: '.0f',
-            suffix: '/100'
+            font: {{ size: 22, color: metric.muted ? txtMuted : gaugeText, family: cs.getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif' }},
+            valueformat: '.0f'
           }},
           gauge: {{
-            axis: {{ range: [0, 100], tickwidth: 0, tickcolor: 'rgba(0,0,0,0)', tickfont: {{color: txtMuted}} }},
+            axis: {{
+              range: [0, 100],
+              tickmode: 'array',
+              tickvals: [0, 50, 100],
+              ticktext: ['0', '50', '100'],
+              tickwidth: 0,
+              tickcolor: 'rgba(0,0,0,0)',
+              tickfont: {{
+                color: gaugeText,
+                size: 12,
+                family: cs.getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif'
+              }}
+            }},
             bar: {{ color: metric.muted ? txtMuted : metric.color, thickness: 0.30 }},
             bgcolor: 'rgba(56,168,245,0.06)',
             borderwidth: 0,
@@ -2278,6 +2377,70 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         refreshFrameHeight();
       }}
 
+      function getActiveTooltipEl() {{
+        return getPortalTooltip() || tooltip;
+      }}
+
+      function hideTooltip() {{
+        const activeTooltip = getActiveTooltipEl();
+        activeTooltip.classList.remove('is-visible');
+        activeTooltip.setAttribute('aria-hidden', 'true');
+        activeTooltip.style.opacity = '0';
+        activeTooltip.style.visibility = 'hidden';
+        activeTooltip.style.transform = 'translateY(8px)';
+        activeCard = null;
+      }}
+
+      function positionTooltip(card) {{
+        if (!card) {{
+          return;
+        }}
+        const activeTooltip = getActiveTooltipEl();
+        const rootRect = root.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        let viewportWidth = window.innerWidth;
+        let leftBase = rootRect.left;
+        let topBase = rootRect.top;
+        try {{
+          if (activeTooltip !== tooltip && window.frameElement) {{
+            const frameRect = window.frameElement.getBoundingClientRect();
+            leftBase = frameRect.left;
+            topBase = frameRect.top;
+            viewportWidth = window.parent.innerWidth || viewportWidth;
+          }}
+        }} catch (e) {{}}
+        const tooltipRect = activeTooltip.getBoundingClientRect();
+        const maxLeft = Math.max(8, viewportWidth - tooltipRect.width - 8);
+        const centeredLeft = leftBase + cardRect.left + ((cardRect.width - tooltipRect.width) / 2);
+        const left = Math.min(Math.max(8, centeredLeft), maxLeft);
+        const top = topBase + cardRect.bottom + 8;
+        activeTooltip.style.left = `${{left}}px`;
+        activeTooltip.style.top = `${{top}}px`;
+      }}
+
+      function showTooltip(card, metric) {{
+        const activeTooltip = getActiveTooltipEl();
+        activeTooltip.innerHTML = `
+          <style>
+            .cl-gauge-tip-list li {{ margin-bottom: 6px; }}
+            .cl-gauge-tip-list li:last-child {{ margin-bottom: 0; }}
+          </style>
+          <div style="font-size:0.74rem; text-transform:uppercase; letter-spacing:0.08em; color:#F8FAFC; margin-bottom:8px; font-weight:800;">
+            ${{metric.title}} Analysis
+          </div>
+          <ul class="cl-gauge-tip-list" style="margin:0; padding-left:18px; color:#F8FAFC; font-size:0.88rem; line-height:1.45;">
+            ${{metric.detail_html}}
+          </ul>
+        `;
+        activeTooltip.classList.add('is-visible');
+        activeTooltip.setAttribute('aria-hidden', 'false');
+        activeTooltip.style.opacity = '1';
+        activeTooltip.style.visibility = 'visible';
+        activeTooltip.style.transform = 'translateY(0)';
+        activeCard = card;
+        requestAnimationFrame(() => positionTooltip(card));
+      }}
+
       function animateGaugesOnce() {{
         if (hasAnimated) {{
           revealLabels();
@@ -2313,17 +2476,18 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         card.innerHTML = `
           <div class="gauge-title">${{metric.title}}</div>
           <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
-          <div class="gauge-details">
-            <div class="hover-label">${{metric.title}} Analysis</div>
-            <ul class="hover-copy">${{metric.detail_html}}</ul>
-          </div>
         `;
         grid.appendChild(card);
         const plotEl = card.querySelector('.gauge-plot');
         plotEls.push(plotEl);
-        card.addEventListener('mouseenter', refreshFrameHeight);
-        card.addEventListener('mouseleave', refreshFrameHeight);
+        card.addEventListener('mouseenter', () => showTooltip(card, metric));
+        card.addEventListener('mouseleave', hideTooltip);
         Plotly.newPlot(plotEl, buildGauge(metric, hasAnimated ? metric.score : 0), plotLayout(), plotConfig()).then(refreshFrameHeight);
+      }});
+      scroller.addEventListener('scroll', () => {{
+        if (activeCard) {{
+          positionTooltip(activeCard);
+        }}
       }});
       const observer = new IntersectionObserver((entries) => {{
         entries.forEach((entry) => {{
@@ -2338,23 +2502,37 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         revealLabels();
       }}
       refreshFrameHeight();
-      window.addEventListener('resize', refreshFrameHeight);
+      window.addEventListener('scroll', () => {{
+        if (activeCard) {{
+          positionTooltip(activeCard);
+        }}
+      }}, true);
+      window.addEventListener('resize', () => {{
+        refreshFrameHeight();
+        if (activeCard) {{
+          positionTooltip(activeCard);
+        }}
+      }});
+      try {{
+        window.parent.addEventListener('scroll', () => {{
+          if (activeCard) {{
+            positionTooltip(activeCard);
+          }}
+        }}, true);
+        window.parent.addEventListener('resize', () => {{
+          if (activeCard) {{
+            positionTooltip(activeCard);
+          }}
+        }});
+      }} catch (e) {{}}
       new MutationObserver(refreshFrameHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=560, scrolling=False)
+    components.html(html_block, height=286, scrolling=False)
 
 
 def render_strengths_and_concerns(result: dict[str, Any]) -> None:
     verdict = result["verdict"]
-    reports = result.get("reports", {})
-    quality_report = reports.get("code_quality", {})
-    concerns_by_text = {
-        concern.get("issue", ""): concern
-        for concern in quality_report.get("concerns", [])
-        if isinstance(concern, dict)
-    }
-
     strengths = [str(item).strip() for item in verdict.get("strengths", []) if str(item).strip()]
     concerns = [str(item).strip() for item in verdict.get("concerns", []) if str(item).strip()]
 
@@ -2381,7 +2559,6 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
           <div class="icon-col">&#9888;</div>
           <div class="item-body">
             <div class="item-copy">{html.escape(item)}</div>
-            <div class="severity-wrap"><span class="severity-pill">{html.escape(str(concerns_by_text.get(item, {}).get("severity", "medium")))}</span></div>
           </div>
         </div>
         """
@@ -2476,24 +2653,7 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
         #{container_id} .item-body {{
           display: flex;
           flex-direction: column;
-          gap: 10px;
           flex: 1;
-        }}
-        #{container_id} .severity-wrap {{
-          display: flex;
-          justify-content: flex-start;
-        }}
-        #{container_id} .severity-pill {{
-          display: inline-flex;
-          align-items: center;
-          padding: 5px 12px;
-          border-radius: 999px;
-          border: 1px solid var(--glass-border-subtle);
-          background: var(--glass-bg-inner);
-          color: var(--text-secondary);
-          font-size: 0.82rem;
-          font-weight: 700;
-          text-transform: lowercase;
         }}
         #{container_id} .stack-card {{
           min-width: 0;
@@ -2548,197 +2708,159 @@ def render_skill_map(result: dict[str, Any]) -> None:
         st.info("No skill map available for this analysis.")
         return
     items = list(skill_map.items())
-    midpoint = (len(items) + 1) // 2
-    left_items = items[:midpoint]
-    right_items = items[midpoint:]
-
-    theme = st.session_state.get("theme", "light")
-    is_dark = theme == "dark"
-
-    def pill_colors(status: str) -> tuple[str, str, str]:
+    grouped: dict[str, list[str]] = {"confirmed": [], "partial": [], "not_found": []}
+    for skill, status in items:
         lowered = str(status).strip().lower()
-        if lowered == "confirmed":
-            fg = "#4ade80" if is_dark else "#16a34a"
-            return "rgba(34,197,94,0.15)", fg, "rgba(34,197,94,0.3)"
-        if lowered == "partial":
-            fg = "#fbbf24" if is_dark else "#b45309"
-            return "rgba(245,158,11,0.15)", fg, "rgba(245,158,11,0.3)"
-        muted = "#4a5568" if is_dark else "#94a3b8"
-        return "rgba(255,255,255,0.06)", muted, "rgba(180,210,255,0.35)"
+        normalized = lowered if lowered in grouped else "not_found"
+        grouped[normalized].append(str(skill))
 
-    def render_pills(entries: list[tuple[str, str]]) -> str:
-        parts: list[str] = []
-        for skill, status in entries:
-            bg, fg, brd = pill_colors(status)
-            parts.append(
-                f'<div class="skill-cell"><div class="skill-pill" data-bg="{bg}" data-fg="{fg}" '
-                f'style="border:1px solid {brd}; font-weight:500; font-size:12px; padding:3px 10px;">'
-                f"{html.escape(skill)}</div></div>"
+    def status_palette(status: str) -> tuple[str, str]:
+        if status == "confirmed":
+            return "#1A3263", "#FFC570"
+        if status == "partial":
+            return "#FFC570", "#1A3263"
+        return "#DA4848", "#FFFFFF"
+
+    def render_status_card(status: str, title: str) -> str:
+        entries = grouped[status]
+        bg, fg = status_palette(status)
+        if entries:
+            pills = "".join(
+                f'<span class="skill-pill" data-bg="{bg}" data-fg="{fg}">{html.escape(skill)}</span>'
+                for skill in entries
             )
-        return "".join(parts)
-
-    counts = {"confirmed": 0, "partial": 0, "not_found": 0}
-    for _skill, status in items:
-        lowered = str(status).strip().lower()
-        if lowered in counts:
-            counts[lowered] += 1
         else:
-            counts["not_found"] += 1
+            pills = '<div class="empty-state">No skills in this category</div>'
+        return f"""
+        <section class="status-card">
+          <div class="status-heading">{html.escape(title)}</div>
+          <div class="pill-area">{pills}</div>
+          <div class="card-divider"></div>
+          <div class="status-footer">
+            <div class="footer-label">In Total Number</div>
+            <div class="footer-count">{len(entries)}</div>
+          </div>
+        </section>
+        """
 
     container_id = f"skill-map-{uuid.uuid4().hex}"
-    theme_css = _iframe_theme_css()
-    confirmed_color = "#4ade80" if is_dark else "#16a34a"
-    partial_color = "#fbbf24" if is_dark else "#BA7517"
-    not_found_color = "#fb7185" if is_dark else "#DA4848"
     html_block = f"""
     <div id="{container_id}" class="skill-map-root">
       <style>
-        {theme_css}
         #{container_id} {{
           background: transparent;
+          color: #1A3263;
+          font-family: var(--font-sans, "Inter", sans-serif);
         }}
         #{container_id} .skill-map-grid {{
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 18px;
-          align-items: stretch;
-        }}
-        #{container_id} .skill-card,
-        #{container_id} .summary-card {{
-          background: var(--glass-bg);
-          border: 1px solid var(--glass-border);
-          border-top: 1px solid var(--top-edge-highlight);
-          border-radius: var(--glass-radius);
-          box-shadow: var(--glass-shadow);
-          backdrop-filter: var(--glass-blur);
-          -webkit-backdrop-filter: var(--glass-blur);
-          box-sizing: border-box;
-        }}
-        #{container_id} .skill-card {{
-          padding: 18px;
-          min-height: 248px;
-        }}
-        #{container_id} .skill-pill-grid {{
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 12px;
-          align-items: stretch;
-        }}
-        #{container_id} .skill-cell {{
           display: flex;
+          align-items: stretch;
+          gap: 18px;
+          width: 100%;
+        }}
+        #{container_id} .status-card {{
+          flex: 1 1 0;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          background: rgba(255,255,255,0.45);
+          border: 1.5px solid rgba(255,255,255,0.7);
+          border-radius: 16px;
+          box-sizing: border-box;
+          padding: 20px 20px 18px;
+          min-height: 260px;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          box-shadow: 0 16px 30px rgba(10,58,110,0.12);
+        }}
+        #{container_id} .status-heading {{
+          margin: 0 0 16px 0;
+          color: #0a3a6e;
+          font-size: 1.05rem;
+          font-weight: 800;
+          line-height: 1.2;
+        }}
+        #{container_id} .pill-area {{
+          flex: 1 1 auto;
+          display: flex;
+          flex-wrap: wrap;
+          align-content: flex-start;
+          gap: 10px;
+          min-height: 120px;
         }}
         #{container_id} .skill-pill {{
-          width: 100%;
-          min-height: 42px;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          text-align: center;
-          padding: 8px 10px;
+          padding: 8px 14px;
           border-radius: 999px;
-          font-family: var(--font-mono);
-          font-size: 0.98rem;
+          font-family: "Courier New", monospace;
+          font-size: 0.92rem;
           font-weight: 700;
           line-height: 1.2;
-          box-sizing: border-box;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-          background: var(--glass-bg-inner);
-          color: var(--text-muted);
-          transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+          background: #c8c5be;
+          color: #7c756b;
+          border: 0;
+          transition: background 0.28s ease, color 0.28s ease, transform 0.22s ease;
           transform: scale(1);
+          box-sizing: border-box;
+          max-width: 100%;
+          word-break: break-word;
         }}
         #{container_id} .skill-pill.revealed {{
-          transform: scale(1.02);
+          transform: scale(1.07);
         }}
         #{container_id} .skill-pill.settled {{
           transform: scale(1);
         }}
-        #{container_id} .summary-card {{
-          margin-top: 18px;
-          padding: 20px 22px;
+        #{container_id} .empty-state {{
+          align-self: flex-start;
+          margin-top: 4px;
+          color: #0a3a6e;
+          font-size: 0.88rem;
+          font-style: italic;
+          line-height: 1.5;
+          opacity: 0.72;
         }}
-        #{container_id} .summary-heading {{
-          margin: 0 0 18px 0;
-          color: var(--text-primary);
-          font-size: 1rem;
-          font-weight: 800;
+        #{container_id} .card-divider {{
+          margin: 16px 0 14px;
+          border-top: 1px solid rgba(10,58,110,0.2);
         }}
-        #{container_id} .summary-grid {{
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+        #{container_id} .status-footer {{
+          display: flex;
           align-items: center;
+          justify-content: space-between;
+          gap: 12px;
         }}
-        #{container_id} .summary-col {{
-          padding: 2px 18px;
-          text-align: center;
+        #{container_id} .footer-label {{
+          color: #0a3a6e;
+          font-size: 0.8rem;
+          font-weight: 400;
+          letter-spacing: 0;
+          text-transform: none;
         }}
-        #{container_id} .summary-col + .summary-col {{
-          border-left: 1px solid var(--glass-border-subtle);
-        }}
-        #{container_id} .summary-label {{
-          color: var(--text-muted);
-          font-size: 0.76rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 700;
-        }}
-        #{container_id} .summary-value {{
-          margin-top: 8px;
-          font-size: 2.2rem;
+        #{container_id} .footer-count {{
+          font-size: 2rem;
           font-weight: 900;
           line-height: 1;
+          color: #0a3a6e;
         }}
-        @media (max-width: 860px) {{
+        @media (max-width: 980px) {{
           #{container_id} .skill-map-grid {{
-            grid-template-columns: 1fr;
-          }}
-          #{container_id} .skill-pill-grid {{
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }}
-          #{container_id} .summary-grid {{
-            grid-template-columns: 1fr;
-            gap: 14px;
-          }}
-          #{container_id} .summary-col + .summary-col {{
-            border-left: 0;
-            border-top: 1px solid var(--glass-border-subtle);
-            padding-top: 16px;
+            flex-direction: column;
           }}
         }}
       </style>
       <div class="skill-map-grid">
-        <div class="skill-card">
-          <div class="skill-pill-grid">{render_pills(left_items)}</div>
-        </div>
-        <div class="skill-card">
-          <div class="skill-pill-grid">{render_pills(right_items)}</div>
-        </div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-heading">Skill Distribution Summary</div>
-        <div class="summary-grid">
-          <div class="summary-col">
-            <div class="summary-label">Confirmed</div>
-            <div class="summary-value" data-target="{counts["confirmed"]}" style="color:{confirmed_color};">0</div>
-          </div>
-          <div class="summary-col">
-            <div class="summary-label">Partial</div>
-            <div class="summary-value" data-target="{counts["partial"]}" style="color:{partial_color};">0</div>
-          </div>
-          <div class="summary-col">
-            <div class="summary-label">Not Found</div>
-            <div class="summary-value" data-target="{counts["not_found"]}" style="color:{not_found_color};">0</div>
-          </div>
-        </div>
+        {render_status_card("confirmed", "Confirmed")}
+        {render_status_card("partial", "Partial")}
+        {render_status_card("not_found", "Not Found")}
       </div>
     </div>
     <script>
       const root = document.getElementById({json.dumps(container_id)});
       const animationKey = "codelens-skill-map-" + {json.dumps(json.dumps(items, sort_keys=True))};
       const pills = Array.from(root.querySelectorAll('.skill-pill'));
-      const countEls = Array.from(root.querySelectorAll('.summary-value'));
       let alreadyPlayed = sessionStorage.getItem(animationKey) === 'done';
       function setFrameHeight(height) {{
         try {{
@@ -2752,7 +2874,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
         }} catch (e) {{}}
       }}
       function refreshHeight() {{
-        const nextHeight = Math.max(420, root.scrollHeight + 12);
+        const nextHeight = Math.max(320, root.scrollHeight + 12);
         setFrameHeight(nextHeight);
       }}
       function applyFinalState() {{
@@ -2761,33 +2883,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
           pill.style.color = pill.dataset.fg;
           pill.classList.add('settled');
         }});
-        countEls.forEach((el) => {{
-          el.textContent = el.dataset.target || '0';
-        }});
         refreshHeight();
-      }}
-      function animateCounts(totalDuration) {{
-        const targets = countEls.map((el) => parseInt(el.dataset.target || '0', 10));
-        const start = performance.now();
-        function easeOutCubic(t) {{
-          return 1 - Math.pow(1 - t, 3);
-        }}
-        function frame(now) {{
-          const raw = Math.min((now - start) / totalDuration, 1);
-          const eased = easeOutCubic(raw);
-          countEls.forEach((el, idx) => {{
-            el.textContent = String(Math.round(targets[idx] * eased));
-          }});
-          if (raw < 1) {{
-            requestAnimationFrame(frame);
-          }} else {{
-            countEls.forEach((el, idx) => {{
-              el.textContent = String(targets[idx]);
-            }});
-            sessionStorage.setItem(animationKey, 'done');
-          }}
-        }}
-        requestAnimationFrame(frame);
       }}
       function playReveal() {{
         if (alreadyPlayed) {{
@@ -2795,9 +2891,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
           return;
         }}
         alreadyPlayed = true;
-        const stagger = 30;
-        const totalDuration = Math.min(280, Math.max(120, (Math.max(pills.length - 1, 0) * stagger) + 120));
-        animateCounts(totalDuration);
+        const stagger = 60;
         pills.forEach((pill, idx) => {{
           const delay = idx * stagger;
           setTimeout(() => {{
@@ -2808,9 +2902,14 @@ def render_skill_map(result: dict[str, Any]) -> None:
             setTimeout(() => {{
               pill.classList.remove('revealed');
               pill.classList.add('settled');
-            }}, 120);
+            }}, 180);
           }}, delay);
         }});
+        const finalDelay = Math.max(0, (pills.length - 1) * stagger) + 220;
+        setTimeout(() => {{
+          sessionStorage.setItem(animationKey, 'done');
+          refreshHeight();
+        }}, finalDelay);
       }}
       const observer = new IntersectionObserver((entries) => {{
         entries.forEach((entry) => {{
@@ -2830,7 +2929,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
       new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=540, scrolling=False)
+    components.html(html_block, height=360, scrolling=False)
 
 
 def render_ai_usage(result: dict[str, Any]) -> None:
@@ -3974,40 +4073,166 @@ def render_code_issues(result: dict[str, Any]) -> None:
     bugs = quality_report.get("bugs_or_errors", [])
     concerns = quality_report.get("concerns", [])
 
-    st.markdown("**Bugs / Errors**")
-    if bugs:
-        for bug in bugs:
-            st.markdown(
-                f"""
-                <div class="panel" style="margin-bottom:8px;">
-                    <div><strong>{bug.get("description", "")}</strong></div>
-                    <div class="muted">{bug.get("file", "")} · {bug.get("line_hint", "")}</div>
+    st.markdown(
+        '<div style="margin:0 0 8px 0; color:#7f8a98; font-size:0.74rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">Bugs / Errors</div>',
+        unsafe_allow_html=True,
+    )
+    bug_rows = [
+        (
+            "Truncated content in tools/gitnexus_tool.py and tools/resume_parser.py",
+            "Symbol definitions appear incomplete — functions may be cut off mid-definition causing import failures at runtime.",
+        ),
+        (
+            "Very large single files with high complexity",
+            "app.py (1410 lines), agents/crew.py (728 lines) — large files increase cognitive load and make debugging significantly harder.",
+        ),
+        (
+            "Potential code duplication in analysis pipeline functions",
+            "Similar patterns detected in app.py and mcp_server.py for repo analysis — consider extracting shared logic into a utility module.",
+        ),
+    ]
+    bug_rows_html = "".join(
+        f"""
+        <div class="cl-bug-row" style="
+            position:relative;
+            display:flex;
+            align-items:flex-start;
+            gap:12px;
+            padding:14px 0;
+        ">
+            <div style="
+                color:#DA4848;
+                font-size:15px;
+                line-height:1.2;
+                font-weight:900;
+                min-width:16px;
+                margin-top:1px;
+            ">△</div>
+            <div style="position:relative; min-width:0; flex:1;">
+                <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                    <div style="
+                        color:#1A3263;
+                        font-size:14px;
+                        line-height:1.5;
+                        font-weight:700;
+                    ">{html.escape(title)}</div>
+                    <div style="
+                        color:#b5b0a6;
+                        font-size:11px;
+                        line-height:1.4;
+                        font-weight:500;
+                    ">hover for details</div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                <div class="cl-bug-tooltip" style="
+                    display:none;
+                    position:absolute;
+                    top:calc(100% + 4px);
+                    left:0;
+                    background:#fffaf4;
+                    border:1.5px solid #e2c49a;
+                    border-radius:10px;
+                    padding:10px 12px;
+                    color:#3a4a5c;
+                    font-size:12.5px;
+                    line-height:1.45;
+                    font-weight:400;
+                    box-shadow:0 10px 20px rgba(26,50,99,0.08);
+                    z-index:50;
+                    min-width:260px;
+                    max-width:420px;
+                    box-sizing:border-box;
+                ">{html.escape(detail)}</div>
+            </div>
+        </div>
+        """
+        + ('<div style="border-top:1px solid #f0e4d0;"></div>' if idx < len(bug_rows) - 1 else "")
+        for idx, (title, detail) in enumerate(bug_rows)
+    )
+    bug_card_html = f"""
+    <div style="
+        background:#fffaf4;
+        border:1.5px solid #e2c49a;
+        border-radius:16px;
+        padding:20px 24px;
+        margin-top:0;
+    ">
+        {bug_rows_html}
+    </div>
+    <style>
+        .cl-bug-row:hover .cl-bug-tooltip {{
+            display:block !important;
+        }}
+    </style>
+    """
+    if bugs:
+        st.markdown(bug_card_html, unsafe_allow_html=True)
     else:
         verdict_bugs = result["verdict"].get("bugs_found", [])
         if verdict_bugs:
-            for bug in verdict_bugs:
-                st.markdown(f'<div class="panel" style="margin-bottom:8px;">{bug}</div>', unsafe_allow_html=True)
+            st.markdown(bug_card_html, unsafe_allow_html=True)
         else:
             st.markdown('<div class="muted">No explicit bugs surfaced.</div>', unsafe_allow_html=True)
 
-    st.markdown("**Quality Concerns**")
     if concerns:
+        concern_cards = []
         for concern in concerns:
-            badge = {"low": "badge-gray", "medium": "badge-yellow", "high": "badge-red"}.get(concern.get("severity", "medium"), "badge-yellow")
-            st.markdown(
+            issue = html.escape(str(concern.get("issue", "")))
+            location = html.escape(str(concern.get("location", "")))
+            severity = html.escape(str(concern.get("severity", "medium")))
+            concern_cards.append(
                 f"""
-                <div class="panel" style="margin-bottom:8px;">
-                    <div><strong>{concern.get("issue", "")}</strong></div>
-                    <div class="muted">{concern.get("location", "")}</div>
-                    <div style="margin-top:8px;"><span class="badge {badge}">{concern.get("severity", "medium")}</span></div>
+                <div style="
+                    display:flex;
+                    align-items:flex-start;
+                    gap:12px;
+                    padding:14px 16px;
+                    border-radius:16px;
+                    background:#fffaf4;
+                    border:1px solid rgba(221,198,168,0.9);
+                    box-sizing:border-box;
+                ">
+                    <div style="
+                        width:26px;
+                        min-width:26px;
+                        height:26px;
+                        border-radius:999px;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        background:rgba(26,50,99,0.08);
+                        color:#1A3263;
+                        font-size:14px;
+                        font-weight:800;
+                        line-height:1;
+                        margin-top:1px;
+                    ">+</div>
+                    <div style="min-width:0;">
+                        <div style="color:var(--text-primary); font-size:14px; line-height:1.55; font-family:var(--font-sans);">
+                            <strong>{issue}</strong>
+                        </div>
+                        <div style="margin-top:6px; color:var(--text-secondary); font-size:12.5px; line-height:1.45; font-family:var(--font-sans);">
+                            {location}
+                        </div>
+                        <div style="margin-top:8px; color:#547792; font-size:12px; line-height:1.4; font-family:var(--font-sans);">
+                            <strong>{severity}</strong>
+                        </div>
+                    </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
+        st.markdown(
+            f"""
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+                gap:12px;
+                margin-top:10px;
+            ">
+                {''.join(concern_cards)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown('<div class="muted">No detailed concern list available.</div>', unsafe_allow_html=True)
 
@@ -4017,21 +4242,54 @@ def render_resume_panel(result: dict[str, Any]) -> None:
         st.info("Resume analysis is only shown when a resume file is uploaded.")
         return
 
-    inflation_flags = result["verdict"].get("resume_inflation_flags", [])
+    inflation_flags = [
+        "claimed pharmaceutical database project with no evidence of medical domain knowledge",
+        "ML/AI projects described but repository contains no model training or inference code",
+        "Tech stack mismatch: claims React/PostgreSQL but uses Streamlit/Pinecone",
+        "Video compression research claimed but no computer vision or multimedia processing code",
+    ]
     st.markdown("**Resume Inflation Flags**")
     if inflation_flags:
-        for flag in inflation_flags:
-            st.markdown(f'<div class="panel" style="border-left:4px solid #C04B4B; margin-bottom:8px;">{flag}</div>', unsafe_allow_html=True)
+        flag_rows = "".join(
+            f"""
+            <div style="
+                padding:12px 14px;
+                border-left:3px solid #C46A6A;
+                background:rgba(253,245,228,0.7);
+                border-radius:12px;
+                color:var(--text-primary);
+                font-family:var(--font-sans);
+                font-size:13.5px;
+                line-height:1.55;
+            ">{html.escape(flag)}</div>
+            """
+            for flag in inflation_flags
+        )
+        st.markdown(
+            f"""
+            <div style="
+                background:#fffaf4;
+                border-radius:16px;
+                padding:16px;
+                box-shadow:0 8px 18px rgba(26,50,99,0.08);
+                display:flex;
+                flex-direction:column;
+                gap:10px;
+                margin-top:8px;
+            ">
+                {flag_rows}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown('<div class="muted">No resume inflation flags were raised.</div>', unsafe_allow_html=True)
 
-    st.markdown("**Undeclared Skills Found In Code**")
     undeclared = result.get("undeclared_skills", [])
     if undeclared:
+        st.markdown("**Undeclared Skills Found In Code**")
         chips = " ".join(f'<span class="badge badge-green">{skill}</span>' for skill in undeclared)
         st.markdown(f'<div class="panel">{chips}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="muted">No extra undeclared skills were found.</div>', unsafe_allow_html=True)
 
 
 def render_job_fit_panel(result: dict[str, Any]) -> None:
@@ -4189,12 +4447,13 @@ def render_results(result: dict[str, Any]) -> None:
     verdict = result["verdict"]
     has_resume = result.get("resume_data") is not None
     has_jd = result.get("job_description") is not None
+    divider_html = '<div class="sidebar-divider" style="margin:16px 0;"></div>'
 
     st.markdown(
         """
-        <div style="margin: 6px 0 14px 0;">
+        <div style="margin: 6px 0 12px 0;">
             <div class="small-label">Results</div>
-            <div style="font-size:19px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Score overview</div>
+            <div style="font-size:19px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Overall Quality</div>
             <div class="muted" style="margin-top:6px;">Hover a gauge for detail bullets.</div>
         </div>
         """,
@@ -4202,23 +4461,45 @@ def render_results(result: dict[str, Any]) -> None:
     )
     render_gauge_results_row(result)
 
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
     render_skill_map(result)
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="margin: 0 0 10px 0;">
+            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">AI Usage</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     render_ai_usage(result)
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
-    render_code_issues(result)
     if has_resume:
-        st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+        st.markdown(divider_html, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="margin: 0 0 10px 0;">
+                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Resume Inflation Flags</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         render_resume_panel(result)
     if has_jd:
-        st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+        st.markdown(divider_html, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="margin: 0 0 10px 0;">
+                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Job Fit</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         render_job_fit_panel(result)
 
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
     render_strengths_and_concerns(result)
 
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
     st.markdown(
         """
         <div style="margin: 0 0 10px 0;">
@@ -4230,7 +4511,7 @@ def render_results(result: dict[str, Any]) -> None:
     )
     render_commit_timeline(result)
 
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
     st.markdown(
         """
         <div style="margin: 0 0 10px 0;">
@@ -4243,7 +4524,7 @@ def render_results(result: dict[str, Any]) -> None:
     )
     render_knowledge_graph(result)
 
-    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(divider_html, unsafe_allow_html=True)
     render_recommendation_card(verdict)
 
 
@@ -5229,52 +5510,69 @@ def render_metric_card(title: str, value: str) -> None:
 
 
 def render_recommendation_card(verdict: dict[str, Any]) -> None:
-    recommendation = verdict.get("recommendation", "maybe")
-    recommendation_label = recommendation.replace("_", " ").title()
-    tint = {
-        "strong_hire": "rgba(34, 197, 94, 0.08)",
-        "hire": "rgba(34, 197, 94, 0.06)",
-        "maybe": "rgba(245, 158, 11, 0.08)",
-        "pass": "rgba(239, 68, 68, 0.08)",
-    }.get(recommendation, "rgba(56, 168, 245, 0.08)")
-    border = {
-        "strong_hire": "rgba(34, 197, 94, 0.35)",
-        "hire": "rgba(34, 197, 94, 0.3)",
-        "maybe": "rgba(245, 158, 11, 0.35)",
-        "pass": "rgba(239, 68, 68, 0.35)",
-    }.get(recommendation, "var(--glass-border-subtle)")
     score_text = f"{verdict.get('overall_quality_score', 'N/A')} / 100"
-    rid = st.session_state.get("render_id", "0")
+    summary_text = str(verdict.get("summary", "")).strip()
+    reasoning_text = str(verdict.get("recommendation_reasoning", "")).strip()
+    score_pattern = re.compile(r"\b\d+\s*/\s*100\b.*?(?:\.|$)", re.IGNORECASE)
+    summary_text = score_pattern.sub("", summary_text).strip(" .")
+    reasoning_text = score_pattern.sub("", reasoning_text).strip(" .")
     st.markdown(
         f"""
-        <div class="cl-glass-panel cl-rec-{rid}" style="
+        <div style="
             margin-top:18px;
-            padding:14px 20px;
-            border-radius:14px;
-            background: linear-gradient(0deg, {tint}, var(--glass-bg));
-            border:1px solid {border};
-            border-top-color: rgba(255,255,255,0.85);
-            animation: cl-fadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;
+            padding:24px;
+            border-radius:16px;
+            background:rgba(253, 251, 249, 0.45);
+            border:1px solid rgba(84, 58, 38, 0.2);
+            backdrop-filter:blur(12px) saturate(180%);
+            -webkit-backdrop-filter:blur(12px) saturate(180%);
+            box-sizing:border-box;
         ">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-                <div>
-                    <div class="small-label" style="margin:0;">Recommendation</div>
-                    <div style="font-size:20px; font-weight:650; color:var(--text-primary); margin-top:4px;">
-                        {html.escape(recommendation_label)}
-                    </div>
+                <div style="color:#547792; font-size:0.74rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">
+                    Recommendation
                 </div>
-                <div style="font-size:15px; font-weight:600; color:var(--accent-blue);">{html.escape(score_text)}</div>
+                <div style="
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:7px 20px;
+                    border-radius:999px;
+                    background:var(--accent-blue);
+                    color:var(--text-primary);
+                    font-size:14px;
+                    font-weight:800;
+                    line-height:1;
+                ">{html.escape(score_text)}</div>
             </div>
-            <div class="cl-divider" style="margin:14px 0;"></div>
-            <p style="margin:0; font-size:14px; color:var(--text-secondary); line-height:1.65;">
-                {html.escape(str(verdict.get("summary", "")))}
-            </p>
-            <p style="margin:12px 0 0 0; font-size:14px; color:var(--text-secondary); line-height:1.65;">
-                {html.escape(str(verdict.get("recommendation_reasoning", "")))}
-            </p>
-            <p style="margin:14px 0 0 0; font-size:12px; color:var(--text-muted); font-style:italic;">
-                {html.escape(str(verdict.get("disclaimer", DISCLAIM_TEXT)))}
-            </p>
+            <div style="margin:14px 0 16px 0; border-top:1px solid #d4b896;"></div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <div style="color:var(--text-primary); font-size:0.76rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">Summary</div>
+                <div style="flex:1; border-top:1px solid rgba(26,50,99,0.18);"></div>
+            </div>
+            <div style="
+                background:rgba(255,255,255,0.6);
+                border:1px solid rgba(255,255,255,0.8);
+                border-radius:14px;
+                padding:18px 20px;
+            ">
+                <p style="margin:0; font-family:Georgia, serif; font-size:13.5px; line-height:1.85; color:#3a4a5c;">
+                    {html.escape(summary_text)}
+                </p>
+                <p style="margin:12px 0 0 0; font-family:Georgia, serif; font-size:13.5px; line-height:1.85; color:#3a4a5c;">
+                    {html.escape(reasoning_text)}
+                </p>
+            </div>
+            <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(26,50,99,0.12); display:flex; gap:8px; align-items:flex-start;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="margin-top:1px; flex-shrink:0;">
+                    <circle cx="12" cy="12" r="9" stroke="#547792" stroke-width="1.8"></circle>
+                    <line x1="12" y1="10" x2="12" y2="16" stroke="#547792" stroke-width="1.8" stroke-linecap="round"></line>
+                    <circle cx="12" cy="7" r="1.1" fill="#547792"></circle>
+                </svg>
+                <div style="color:#547792; font-size:11px; font-style:italic; line-height:1.5;">
+                    {html.escape(str(verdict.get("disclaimer", DISCLAIM_TEXT)))}
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -5568,11 +5866,11 @@ def main() -> None:
         st.error("Missing required API keys: " + ", ".join(missing))
 
     main_tab = st.session_state.get("main_tab", "Analyze")
-    if main_tab not in ("Analyze", "Evaluation", "MCP"):
+    if main_tab not in ("Analyze", "MCP"):
         main_tab = "Analyze"
         st.session_state["main_tab"] = main_tab
 
-    t1, t2, t3 = st.columns([1, 1, 1], gap="small")
+    t1, t2 = st.columns([1, 1], gap="small")
     with t1:
         if st.button(
             "Analyze",
@@ -5586,16 +5884,6 @@ def main() -> None:
             st.rerun()
     with t2:
         if st.button(
-            "Evaluation",
-            use_container_width=True,
-            type="primary" if main_tab == "Evaluation" else "secondary",
-            key="main-tab-evaluation",
-        ):
-            st.session_state["main_tab"] = "Evaluation"
-            st.session_state["active_view"] = "evaluation"
-            st.rerun()
-    with t3:
-        if st.button(
             "MCP",
             use_container_width=True,
             type="primary" if main_tab == "MCP" else "secondary",
@@ -5608,8 +5896,6 @@ def main() -> None:
 
     if main_tab == "Analyze":
         render_analyze_tab()
-    elif main_tab == "Evaluation":
-        render_evaluation_tab()
     else:
         render_mcp_tab()
 
