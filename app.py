@@ -164,6 +164,18 @@ def inject_global_styles() -> None:
                 radial-gradient(circle at 86% 10%, rgba(255, 255, 255, 0.52), transparent 24%),
                 radial-gradient(circle at 78% 58%, rgba(56, 168, 245, 0.15), transparent 20%),
                 var(--bg-gradient);
+            --pill-high-bg: rgba(90, 20, 38, 0.72);
+            --pill-high-fg: #fecdd3;
+            --pill-high-bd: rgba(251, 113, 133, 0.42);
+            --pill-medium-bg: rgba(110, 75, 22, 0.55);
+            --pill-medium-fg: #fde68a;
+            --pill-medium-bd: rgba(251, 191, 36, 0.38);
+            --pill-low-bg: rgba(38, 52, 72, 0.58);
+            --pill-low-fg: #cbd5e1;
+            --pill-low-bd: rgba(148, 163, 184, 0.32);
+            --pill-unknown-bg: rgba(50, 60, 80, 0.55);
+            --pill-unknown-fg: #e2e8f0;
+            --pill-unknown-bd: rgba(148, 163, 184, 0.28);
         """
     else:
         theme_vars = """
@@ -198,6 +210,18 @@ def inject_global_styles() -> None:
             --input-text: #0F172A;
             --input-placeholder: rgba(15, 23, 42, 0.42);
             --input-border: rgba(15, 23, 42, 0.14);
+            --pill-high-bg: rgba(254, 226, 226, 0.95);
+            --pill-high-fg: #991b1b;
+            --pill-high-bd: rgba(225, 29, 72, 0.32);
+            --pill-medium-bg: rgba(254, 243, 199, 0.95);
+            --pill-medium-fg: #92400e;
+            --pill-medium-bd: rgba(245, 158, 11, 0.35);
+            --pill-low-bg: rgba(241, 245, 249, 0.95);
+            --pill-low-fg: #475569;
+            --pill-low-bd: rgba(100, 116, 139, 0.28);
+            --pill-unknown-bg: rgba(241, 245, 249, 0.9);
+            --pill-unknown-fg: #64748b;
+            --pill-unknown-bd: rgba(100, 116, 139, 0.25);
         """
 
     st.markdown(
@@ -780,6 +804,108 @@ def inject_global_styles() -> None:
                 font-weight: 600;
                 color: var(--text-primary);
                 margin-bottom: 8px;
+            }}
+
+            .issue-section-label {{
+                margin: 0 0 10px 0;
+                color: var(--text-muted);
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                font-family: var(--font-sans);
+            }}
+
+            .issue-stack {{
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }}
+
+            .issue-card {{
+                position: relative;
+                overflow: hidden;
+                border-radius: var(--glass-radius-sm);
+                padding: 16px 18px;
+                background: linear-gradient(
+                    105deg,
+                    var(--glass-bg-hover) 0%,
+                    var(--glass-bg-inner) 42%,
+                    var(--glass-bg-inner) 100%
+                );
+                border: 1px solid var(--glass-border-subtle);
+                border-top: 1px solid var(--top-edge-highlight);
+                box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+                backdrop-filter: var(--glass-blur-inner);
+                -webkit-backdrop-filter: var(--glass-blur-inner);
+                font-family: var(--font-sans);
+            }}
+
+            .issue-card::before {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 38%);
+                pointer-events: none;
+            }}
+
+            .issue-card__title {{
+                position: relative;
+                font-size: 14px;
+                line-height: 1.5;
+                font-weight: 700;
+                color: var(--text-primary);
+            }}
+
+            .issue-card__meta {{
+                position: relative;
+                margin-top: 8px;
+                font-size: 12.5px;
+                line-height: 1.45;
+                color: var(--text-muted);
+            }}
+
+            .issue-card__footer {{
+                position: relative;
+                margin-top: 14px;
+            }}
+
+            .severity-pill {{
+                display: inline-flex;
+                align-items: center;
+                border-radius: 999px;
+                padding: 5px 12px;
+                font-size: 11px;
+                font-weight: 700;
+                line-height: 1;
+                letter-spacing: 0.06em;
+                text-transform: lowercase;
+                border-width: 1px;
+                border-style: solid;
+            }}
+
+            .severity-pill--high {{
+                background: var(--pill-high-bg);
+                color: var(--pill-high-fg);
+                border-color: var(--pill-high-bd);
+            }}
+
+            .severity-pill--medium {{
+                background: var(--pill-medium-bg);
+                color: var(--pill-medium-fg);
+                border-color: var(--pill-medium-bd);
+            }}
+
+            .severity-pill--low {{
+                background: var(--pill-low-bg);
+                color: var(--pill-low-fg);
+                border-color: var(--pill-low-bd);
+            }}
+
+            .severity-pill--unknown {{
+                background: var(--pill-unknown-bg);
+                color: var(--pill-unknown-fg);
+                border-color: var(--pill-unknown-bd);
             }}
 
             .panel,
@@ -4067,172 +4193,128 @@ def render_commit_timeline(result: dict[str, Any]) -> None:
     components.html(html_block, height=460, scrolling=False)
 
 
+def _issue_card_html(
+    title: str,
+    meta: str,
+    pill_kind: str | None,
+    pill_label: str | None,
+) -> str:
+    esc_title = html.escape(title)
+    meta_html = f'<div class="issue-card__meta">{html.escape(meta)}</div>' if meta else ""
+    pill_html = ""
+    if pill_kind and pill_label:
+        pk = pill_kind if pill_kind in {"high", "medium", "low", "unknown"} else "unknown"
+        pill_html = (
+            f'<div class="issue-card__footer">'
+            f'<span class="severity-pill severity-pill--{pk}">{html.escape(pill_label.lower())}</span>'
+            f"</div>"
+        )
+    return (
+        f'<div class="issue-card codelens-reveal">'
+        f'<div class="issue-card__title">{esc_title}</div>'
+        f"{meta_html}{pill_html}</div>"
+    )
+
+
+def _collect_bug_rows(bugs: list[Any], verdict_bugs: list[Any]) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for item in bugs or []:
+        if isinstance(item, dict):
+            desc = str(item.get("description") or "").strip()
+            if not desc:
+                continue
+            file_part = str(item.get("file") or "").strip()
+            hint = str(item.get("line_hint") or "").strip()
+            meta_parts = [p for p in (file_part, hint) if p]
+            rows.append((desc, " · ".join(meta_parts)))
+        elif isinstance(item, str) and item.strip():
+            rows.append((item.strip(), ""))
+    if not rows:
+        for item in verdict_bugs or []:
+            if isinstance(item, str) and item.strip():
+                rows.append((item.strip(), ""))
+    return rows
+
+
+def _severity_pill_kind_and_label(severity: str) -> tuple[str, str]:
+    s = (severity or "medium").strip().lower()
+    if s in {"critical", "severe"}:
+        return "high", s
+    if s == "high":
+        return "high", "high"
+    if s in {"medium", "moderate", "med"}:
+        return "medium", "medium"
+    if s in {"low", "info", "informational", "minor"}:
+        return "low", "low"
+    raw = (severity or "").strip().lower()
+    if raw:
+        if len(raw) > 32:
+            raw = raw[:29] + "…"
+        return "unknown", raw
+    return "medium", "medium"
+
+
+def _resume_inflation_flag_lines(result: dict[str, Any]) -> list[str]:
+    verdict = result.get("verdict") or {}
+    raw = verdict.get("resume_inflation_flags")
+    if isinstance(raw, list):
+        lines = [str(x).strip() for x in raw if str(x).strip()]
+        if lines:
+            return lines
+    reports = result.get("reports", {})
+    rm = reports.get("resume_match")
+    if isinstance(rm, dict):
+        inner = rm.get("inflation_flags")
+        if isinstance(inner, list):
+            return [str(x).strip() for x in inner if str(x).strip()]
+    return []
+
+
 def render_code_issues(result: dict[str, Any]) -> None:
     reports = result.get("reports", {})
+    verdict = result.get("verdict") or {}
     quality_report = reports.get("code_quality", {})
     bugs = quality_report.get("bugs_or_errors", [])
     concerns = quality_report.get("concerns", [])
+    verdict_bugs = verdict.get("bugs_found", [])
+    if not isinstance(verdict_bugs, list):
+        verdict_bugs = []
+    verdict_concern_fallback = [
+        str(c).strip()
+        for c in (verdict.get("concerns") or [])
+        if isinstance(c, str) and str(c).strip()
+    ]
+
+    st.markdown('<div class="issue-section-label">Bugs / Errors</div>', unsafe_allow_html=True)
+    bug_rows = _collect_bug_rows(bugs, verdict_bugs)
+    if bug_rows:
+        cards = "".join(_issue_card_html(t, m, None, None) for t, m in bug_rows)
+        st.markdown(f'<div class="issue-stack">{cards}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="muted">No explicit bugs surfaced.</div>', unsafe_allow_html=True)
 
     st.markdown(
-        '<div style="margin:0 0 8px 0; color:#7f8a98; font-size:0.74rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">Bugs / Errors</div>',
+        '<div class="issue-section-label" style="margin-top:18px;">Quality Concerns</div>',
         unsafe_allow_html=True,
     )
-    bug_rows = [
-        (
-            "Truncated content in tools/gitnexus_tool.py and tools/resume_parser.py",
-            "Symbol definitions appear incomplete — functions may be cut off mid-definition causing import failures at runtime.",
-        ),
-        (
-            "Very large single files with high complexity",
-            "app.py (1410 lines), agents/crew.py (728 lines) — large files increase cognitive load and make debugging significantly harder.",
-        ),
-        (
-            "Potential code duplication in analysis pipeline functions",
-            "Similar patterns detected in app.py and mcp_server.py for repo analysis — consider extracting shared logic into a utility module.",
-        ),
-    ]
-    bug_rows_html = "".join(
-        f"""
-        <div class="cl-bug-row" style="
-            position:relative;
-            display:flex;
-            align-items:flex-start;
-            gap:12px;
-            padding:14px 0;
-        ">
-            <div style="
-                color:#DA4848;
-                font-size:15px;
-                line-height:1.2;
-                font-weight:900;
-                min-width:16px;
-                margin-top:1px;
-            ">△</div>
-            <div style="position:relative; min-width:0; flex:1;">
-                <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
-                    <div style="
-                        color:#1A3263;
-                        font-size:14px;
-                        line-height:1.5;
-                        font-weight:700;
-                    ">{html.escape(title)}</div>
-                    <div style="
-                        color:#b5b0a6;
-                        font-size:11px;
-                        line-height:1.4;
-                        font-weight:500;
-                    ">hover for details</div>
-                </div>
-                <div class="cl-bug-tooltip" style="
-                    display:none;
-                    position:absolute;
-                    top:calc(100% + 4px);
-                    left:0;
-                    background:#fffaf4;
-                    border:1.5px solid #e2c49a;
-                    border-radius:10px;
-                    padding:10px 12px;
-                    color:#3a4a5c;
-                    font-size:12.5px;
-                    line-height:1.45;
-                    font-weight:400;
-                    box-shadow:0 10px 20px rgba(26,50,99,0.08);
-                    z-index:50;
-                    min-width:260px;
-                    max-width:420px;
-                    box-sizing:border-box;
-                ">{html.escape(detail)}</div>
-            </div>
-        </div>
-        """
-        + ('<div style="border-top:1px solid #f0e4d0;"></div>' if idx < len(bug_rows) - 1 else "")
-        for idx, (title, detail) in enumerate(bug_rows)
-    )
-    bug_card_html = f"""
-    <div style="
-        background:#fffaf4;
-        border:1.5px solid #e2c49a;
-        border-radius:16px;
-        padding:20px 24px;
-        margin-top:0;
-    ">
-        {bug_rows_html}
-    </div>
-    <style>
-        .cl-bug-row:hover .cl-bug-tooltip {{
-            display:block !important;
-        }}
-    </style>
-    """
-    if bugs:
-        st.markdown(bug_card_html, unsafe_allow_html=True)
-    else:
-        verdict_bugs = result["verdict"].get("bugs_found", [])
-        if verdict_bugs:
-            st.markdown(bug_card_html, unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="muted">No explicit bugs surfaced.</div>', unsafe_allow_html=True)
-
-    if concerns:
-        concern_cards = []
-        for concern in concerns:
-            issue = html.escape(str(concern.get("issue", "")))
-            location = html.escape(str(concern.get("location", "")))
-            severity = html.escape(str(concern.get("severity", "medium")))
-            concern_cards.append(
-                f"""
-                <div style="
-                    display:flex;
-                    align-items:flex-start;
-                    gap:12px;
-                    padding:14px 16px;
-                    border-radius:16px;
-                    background:#fffaf4;
-                    border:1px solid rgba(221,198,168,0.9);
-                    box-sizing:border-box;
-                ">
-                    <div style="
-                        width:26px;
-                        min-width:26px;
-                        height:26px;
-                        border-radius:999px;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        background:rgba(26,50,99,0.08);
-                        color:#1A3263;
-                        font-size:14px;
-                        font-weight:800;
-                        line-height:1;
-                        margin-top:1px;
-                    ">+</div>
-                    <div style="min-width:0;">
-                        <div style="color:var(--text-primary); font-size:14px; line-height:1.55; font-family:var(--font-sans);">
-                            <strong>{issue}</strong>
-                        </div>
-                        <div style="margin-top:6px; color:var(--text-secondary); font-size:12.5px; line-height:1.45; font-family:var(--font-sans);">
-                            {location}
-                        </div>
-                        <div style="margin-top:8px; color:#547792; font-size:12px; line-height:1.4; font-family:var(--font-sans);">
-                            <strong>{severity}</strong>
-                        </div>
-                    </div>
-                </div>
-                """
-            )
-        st.markdown(
-            f"""
-            <div style="
-                display:grid;
-                grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
-                gap:12px;
-                margin-top:10px;
-            ">
-                {''.join(concern_cards)}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    parts: list[str] = []
+    for concern in concerns:
+        if isinstance(concern, dict):
+            issue = str(concern.get("issue", "")).strip()
+            if not issue:
+                continue
+            location = str(concern.get("location", "")).strip()
+            kind, label = _severity_pill_kind_and_label(str(concern.get("severity", "medium")))
+            parts.append(_issue_card_html(issue, location, kind, label))
+        elif isinstance(concern, str) and concern.strip():
+            kind, label = _severity_pill_kind_and_label("medium")
+            parts.append(_issue_card_html(concern.strip(), "", kind, label))
+    if not parts and verdict_concern_fallback:
+        for line in verdict_concern_fallback[:8]:
+            kind, label = _severity_pill_kind_and_label("medium")
+            parts.append(_issue_card_html(line, "From overall assessment", kind, label))
+    if parts:
+        st.markdown(f'<div class="issue-stack">{"".join(parts)}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="muted">No detailed concern list available.</div>', unsafe_allow_html=True)
 
@@ -4242,46 +4324,11 @@ def render_resume_panel(result: dict[str, Any]) -> None:
         st.info("Resume analysis is only shown when a resume file is uploaded.")
         return
 
-    inflation_flags = [
-        "claimed pharmaceutical database project with no evidence of medical domain knowledge",
-        "ML/AI projects described but repository contains no model training or inference code",
-        "Tech stack mismatch: claims React/PostgreSQL but uses Streamlit/Pinecone",
-        "Video compression research claimed but no computer vision or multimedia processing code",
-    ]
-    st.markdown("**Resume Inflation Flags**")
+    inflation_flags = _resume_inflation_flag_lines(result)
+    st.markdown('<div class="issue-section-label">Resume Inflation Flags</div>', unsafe_allow_html=True)
     if inflation_flags:
-        flag_rows = "".join(
-            f"""
-            <div style="
-                padding:12px 14px;
-                border-left:3px solid #C46A6A;
-                background:rgba(253,245,228,0.7);
-                border-radius:12px;
-                color:var(--text-primary);
-                font-family:var(--font-sans);
-                font-size:13.5px;
-                line-height:1.55;
-            ">{html.escape(flag)}</div>
-            """
-            for flag in inflation_flags
-        )
-        st.markdown(
-            f"""
-            <div style="
-                background:#fffaf4;
-                border-radius:16px;
-                padding:16px;
-                box-shadow:0 8px 18px rgba(26,50,99,0.08);
-                display:flex;
-                flex-direction:column;
-                gap:10px;
-                margin-top:8px;
-            ">
-                {flag_rows}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        cards = "".join(_issue_card_html(flag, "", "high", "high") for flag in inflation_flags)
+        st.markdown(f'<div class="issue-stack">{cards}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="muted">No resume inflation flags were raised.</div>', unsafe_allow_html=True)
 
@@ -4473,12 +4520,25 @@ def render_results(result: dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
     render_ai_usage(result)
+
+    st.markdown(divider_html, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="margin: 0 0 10px 0;">
+            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Bugs &amp; code quality</div>
+            <div class="muted" style="margin-top:5px;">Structured findings from the code-quality pass (and judge summary when details are missing).</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_code_issues(result)
+
     if has_resume:
         st.markdown(divider_html, unsafe_allow_html=True)
         st.markdown(
             """
             <div style="margin: 0 0 10px 0;">
-                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Resume Inflation Flags</div>
+                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Resume</div>
             </div>
             """,
             unsafe_allow_html=True,
