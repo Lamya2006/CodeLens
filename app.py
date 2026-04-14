@@ -4008,31 +4008,6 @@ def render_resume_panel(result: dict[str, Any]) -> None:
         st.info("Resume analysis is only shown when a resume file is uploaded.")
         return
 
-    st.markdown("**Project Verdicts**")
-    project_cards = result.get("project_matches", [])
-    if project_cards:
-        for project in project_cards:
-            evidence_html = ""
-            for item in project.get("feature_evidence", []):
-                found_badge = "badge-green" if item.get("found") else "badge-red"
-                evidence_html += (
-                    f"<div class='list-item'><strong>{item.get('feature','')}</strong> "
-                    f"<span class='badge {found_badge}'>{'found' if item.get('found') else 'missing'}</span>"
-                    f"<div class='muted' style='margin-top:6px;'>{item.get('quality_note','')}</div></div>"
-                )
-            st.markdown(
-                f"""
-                <div class="panel" style="margin-bottom:10px;">
-                    <div class="section-title">{project.get("project_name", "Project")}</div>
-                    <div class="muted">Overall match: {project.get("overall_match", 0.0):.2f}</div>
-                    {evidence_html or '<div class="muted">No feature evidence found.</div>'}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown('<div class="muted">No project-level matches were generated.</div>', unsafe_allow_html=True)
-
     inflation_flags = result["verdict"].get("resume_inflation_flags", [])
     st.markdown("**Resume Inflation Flags**")
     if inflation_flags:
@@ -4247,7 +4222,915 @@ def render_results(result: dict[str, Any]) -> None:
     render_commit_timeline(result)
 
     st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="margin: 0 0 10px 0;">
+            <div class="small-label">Codebase Structure</div>
+            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Knowledge Graph</div>
+            <div class="muted" style="margin-top:5px;">Force-directed map of files, directories, and symbols. <strong style="color:var(--accent-blue);">Click a file</strong> to read its code · drag to reposition · scroll to zoom · click dirs/symbols to highlight connections.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_knowledge_graph(result)
+
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
     render_recommendation_card(verdict)
+
+
+def render_knowledge_graph(result: dict[str, Any]) -> None:
+    """Obsidian-style interactive D3 force-directed knowledge graph of the analysed repo."""
+    analysis_data = result.get("analysis_data", {}) or {}
+    kg = analysis_data.get("knowledge_graph", {}) or {}
+    repo_meta = analysis_data.get("repo_metadata", {}) or {}
+
+    raw_file_tree = kg.get("file_tree") or []
+    file_tree = [f for f in raw_file_tree if isinstance(f, str) and f]
+    function_list = [f for f in (kg.get("function_list") or []) if isinstance(f, dict) and f.get("name")]
+    class_list = [c for c in (kg.get("class_list") or []) if isinstance(c, dict) and c.get("name")]
+
+    # ── Build file content map for code viewer ─────────────────────────────
+    HLJS_LANG: dict[str, str] = {
+        "py": "python", "js": "javascript", "ts": "typescript", "tsx": "typescript",
+        "jsx": "javascript", "css": "css", "scss": "scss", "html": "html",
+        "json": "json", "md": "markdown", "mdx": "markdown", "yml": "yaml",
+        "yaml": "yaml", "sh": "bash", "bash": "bash", "go": "go", "rs": "rust",
+        "rb": "ruby", "java": "java", "cpp": "cpp", "c": "c", "cs": "csharp",
+        "php": "php", "swift": "swift", "kt": "kotlin", "dart": "dart",
+        "toml": "toml", "sql": "sql", "vue": "xml", "svelte": "xml",
+    }
+    MAX_LINES_PER_FILE: int = 300
+    MAX_TOTAL_CONTENT_BYTES: int = 600_000  # ~600 KB cap for the whole payload
+    raw_files: list[dict] = analysis_data.get("files") or []
+    file_content_map: dict[str, dict] = {}
+    total_content_bytes = 0
+    for fd in raw_files:
+        if total_content_bytes >= MAX_TOTAL_CONTENT_BYTES:
+            break
+        fp = fd.get("file_path") or fd.get("path") or ""
+        if not fp:
+            continue
+        content = fd.get("content") or fd.get("text") or ""
+        if not content and isinstance(fd.get("symbols"), list):
+            snippets = [
+                s.get("code") or s.get("text") or ""
+                for s in fd["symbols"][:8]
+                if isinstance(s, dict)
+            ]
+            content = "\n\n".join(s for s in snippets if s)
+        if not content:
+            continue
+        # Decode literal \n/\t escape sequences stored as raw strings
+        if "\\n" in content:
+            content = content.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "\t")
+        lines = content.splitlines()
+        truncated = len(lines) > MAX_LINES_PER_FILE
+        ext = fp.rsplit(".", 1)[-1].lower() if "." in fp.split("/")[-1] else ""
+        capped_content = "\n".join(lines[:MAX_LINES_PER_FILE])
+        file_content_map[fp] = {
+            "content": capped_content,
+            "truncated": truncated,
+            "total_lines": len(lines),
+            "lang": HLJS_LANG.get(ext, "plaintext"),
+            "ext": ext,
+        }
+        total_content_bytes += len(capped_content)
+
+    if not file_tree and not function_list and not class_list:
+        st.info("No code structure data available for knowledge graph.")
+        return
+
+    repo_name = repo_meta.get("name") or (st.session_state.get("last_github_url") or "").rstrip("/").split("/")[-1] or "Repository"
+    primary_lang = repo_meta.get("primary_language") or ""
+    lang_breakdown = repo_meta.get("language_breakdown") or {}
+
+    LANG_COLORS: dict[str, str] = {
+        "py": "#4b8bbe", "js": "#f0db4f", "ts": "#3178c6", "tsx": "#61dafb",
+        "jsx": "#61dafb", "css": "#8b5cf6", "scss": "#f472b6", "html": "#e34c26",
+        "json": "#94a3b8", "md": "#7c3aed", "mdx": "#7c3aed",
+        "yml": "#d97706", "yaml": "#d97706", "sh": "#22c55e", "bash": "#22c55e",
+        "go": "#00add8", "rs": "#e87040", "rb": "#cc342d", "java": "#f89820",
+        "cpp": "#659bd3", "c": "#8badc5", "cs": "#68217a", "php": "#8892bf",
+        "swift": "#fa7343", "kt": "#7f52ff", "dart": "#54c5f8",
+        "toml": "#c47b29", "lock": "#4b5563", "env": "#f59e0b",
+        "txt": "#6b7280", "svg": "#f472b6", "vue": "#42b883",
+    }
+
+    MAX_FILES = 72
+    MAX_DIRS = 22
+    MAX_SYMBOLS = 38
+
+    def file_priority(fp: str) -> int:
+        name = fp.split("/")[-1]
+        if name in ("package-lock.json", "yarn.lock", "poetry.lock", "Pipfile.lock"):
+            return 3
+        if name.startswith(".") and name not in (".gitignore", ".env.example"):
+            return 2
+        if "test" in fp.lower() or "spec" in fp.lower():
+            return 0
+        return 1
+
+    file_tree_sorted = sorted(file_tree, key=file_priority)[:MAX_FILES]
+
+    nodes: list[dict] = []
+    links: list[dict] = []
+    node_id_set: set[str] = set()
+
+    def add_node(n: dict) -> None:
+        if n["id"] not in node_id_set:
+            node_id_set.add(n["id"])
+            nodes.append(n)
+
+    # ── Root node ─────────────────────────────────────────────────────────────
+    root_label = repo_name.split("/")[-1] if "/" in repo_name else repo_name
+    add_node({
+        "id": "root",
+        "type": "root",
+        "label": root_label,
+        "tooltip": f"{repo_name}\n{primary_lang}",
+        "r": 18,
+        "color": "#38a8f5",
+    })
+
+    # ── Directory nodes ────────────────────────────────────────────────────────
+    dir_direct_files: dict[str, list[str]] = {}
+    for fp in file_tree_sorted:
+        parts = fp.split("/")
+        for depth in range(1, len(parts)):
+            d = "/".join(parts[:depth])
+            dir_direct_files.setdefault(d, [])
+        if len(parts) > 1:
+            parent_key = "/".join(parts[:-1])
+            dir_direct_files.setdefault(parent_key, []).append(fp)
+
+    good_dirs: list[tuple[str, int]] = sorted(
+        [(d, len(children)) for d, children in dir_direct_files.items()
+         if len(children) >= 2 and d.count("/") <= 2],
+        key=lambda x: (x[0].count("/"), x[0]),
+    )[:MAX_DIRS]
+
+    dir_set = {d for d, _ in good_dirs}
+
+    for d, child_count in good_dirs:
+        did = f"dir:{d}"
+        dir_label = d.split("/")[-1] + "/"
+        add_node({
+            "id": did,
+            "type": "dir",
+            "label": dir_label,
+            "full_path": d + "/",
+            "tooltip": f"{d}/\n{child_count} files",
+            "r": max(9, min(16, 8 + child_count // 2)),
+            "color": "#38a8f5",
+            "child_count": child_count,
+        })
+        parts = d.split("/")
+        parent_d = "/".join(parts[:-1]) if len(parts) > 1 else ""
+        if parent_d and parent_d in dir_set:
+            links.append({"source": f"dir:{parent_d}", "target": did, "type": "contains"})
+        else:
+            links.append({"source": "root", "target": did, "type": "contains"})
+
+    # ── File nodes ─────────────────────────────────────────────────────────────
+    for fp in file_tree_sorted:
+        fid = f"file:{fp}"
+        name = fp.split("/")[-1]
+        ext = fp.rsplit(".", 1)[-1].lower() if "." in name else ""
+        is_test = "test" in fp.lower() or "spec" in fp.lower()
+        is_config = name in {
+            "package.json", "setup.py", "pyproject.toml", "requirements.txt",
+            "Makefile", "makefile", ".gitignore", "Dockerfile", "docker-compose.yml",
+        }
+        color = "#22c55e" if is_test else LANG_COLORS.get(ext, "#64748b")
+        r = 5 if is_config else (6 if is_test else 7)
+        add_node({
+            "id": fid,
+            "type": "file",
+            "label": name,
+            "full_path": fp,
+            "ext": ext,
+            "is_test": is_test,
+            "is_config": is_config,
+            "tooltip": fp,
+            "r": r,
+            "color": color,
+        })
+        parts = fp.split("/")
+        linked = False
+        for depth in range(len(parts) - 1, 0, -1):
+            candidate = "/".join(parts[:depth])
+            if candidate in dir_set:
+                links.append({"source": f"dir:{candidate}", "target": fid, "type": "contains"})
+                linked = True
+                break
+        if not linked:
+            links.append({"source": "root", "target": fid, "type": "contains"})
+
+    # ── Symbol nodes ───────────────────────────────────────────────────────────
+    if len(file_tree_sorted) <= 55:
+        sym_count = 0
+        interleaved: list[tuple[str, dict]] = []
+        max_each = MAX_SYMBOLS // 2
+        for s in class_list[:max_each]:
+            interleaved.append(("class", s))
+        for s in function_list[:max_each]:
+            interleaved.append(("function", s))
+
+        for sym_type, s in interleaved:
+            if sym_count >= MAX_SYMBOLS:
+                break
+            sfp = s.get("file_path", "")
+            sname = s.get("name", "")
+            if not sname:
+                continue
+            fid = f"file:{sfp}"
+            if fid not in node_id_set:
+                continue
+            sid = f"sym:{sfp}:{sname}"
+            if sid in node_id_set:
+                continue
+            add_node({
+                "id": sid,
+                "type": sym_type,
+                "label": sname,
+                "file_path": sfp,
+                "tooltip": f"{'class' if sym_type == 'class' else 'def'} {sname}\n{sfp}",
+                "r": 4,
+                "color": "#f59e0b" if sym_type == "class" else "#a855f7",
+            })
+            links.append({"source": fid, "target": sid, "type": "defines"})
+            sym_count += 1
+
+    # ── Test → impl inference ──────────────────────────────────────────────────
+    file_path_to_id = {n["full_path"]: n["id"] for n in nodes if n.get("full_path")}
+    for n in nodes:
+        if n["type"] == "file" and n.get("is_test"):
+            name = n["label"]
+            impl_name = (
+                name.replace("test_", "").replace("_test", "")
+                    .replace("spec_", "").replace("_spec", "")
+            )
+            for other_fp, other_id in file_path_to_id.items():
+                if other_id != n["id"] and other_fp.endswith(impl_name) and impl_name:
+                    links.append({"source": n["id"], "target": other_id, "type": "tests"})
+                    break
+
+    # ── Tag file nodes that have viewable content ──────────────────────────────
+    for n in nodes:
+        if n["type"] == "file":
+            fp = n.get("full_path", "")
+            n["has_content"] = fp in file_content_map
+
+    # ── Serialize — escape </ so file content can't break the script tag ───────
+    def _safe_json(obj: Any) -> str:
+        """JSON-encode and escape </ so a closing script tag in content can't break the page."""
+        return json.dumps(obj).replace("</", "<\\/")
+
+    graph_json = _safe_json({"nodes": nodes, "links": links})
+    content_json = _safe_json(file_content_map)
+    container_id = f"kg-{uuid.uuid4().hex[:8]}"
+    theme_css = _iframe_theme_css()
+    theme = st.session_state.get("theme", "light")
+    is_dark = theme == "dark"
+
+    bg = "#06090f" if is_dark else "#eef2f8"
+    dot_color = "rgba(255,255,255,0.06)" if is_dark else "rgba(0,0,0,0.06)"
+    label_fill = "rgba(255,255,255,0.82)" if is_dark else "rgba(10,20,50,0.82)"
+    muted_fill = "rgba(255,255,255,0.38)" if is_dark else "rgba(10,20,50,0.38)"
+    ctrl_bg = "rgba(255,255,255,0.04)" if is_dark else "rgba(255,255,255,0.75)"
+    ctrl_border = "rgba(255,255,255,0.09)" if is_dark else "rgba(0,0,0,0.09)"
+    btn_col = "rgba(255,255,255,0.78)" if is_dark else "rgba(10,20,50,0.72)"
+    tip_bg = "#111827" if is_dark else "#ffffff"
+    tip_col = "#e2e8f0" if is_dark else "#1e293b"
+    tip_border = "rgba(255,255,255,0.12)" if is_dark else "rgba(0,0,0,0.12)"
+    stat_col = "rgba(255,255,255,0.45)" if is_dark else "rgba(0,0,0,0.4)"
+    input_bg = "rgba(255,255,255,0.06)" if is_dark else "rgba(255,255,255,0.9)"
+    input_border = "rgba(255,255,255,0.14)" if is_dark else "rgba(0,0,0,0.18)"
+
+    n_nodes = len(nodes)
+    n_links = len(links)
+
+    html_block = f"""
+    <div id="{container_id}" style="
+      width:100%; font-family:var(--font-sans,'system-ui,sans-serif');
+      background:{bg}; border-radius:16px; overflow:hidden;
+      border:1px solid {ctrl_border};
+    ">
+      <style>
+        {theme_css}
+        #{container_id} * {{ box-sizing:border-box; }}
+        #{container_id} .kg-controls {{
+          display:flex; align-items:center; gap:8px; padding:10px 14px;
+          background:{ctrl_bg}; border-bottom:1px solid {ctrl_border};
+          flex-wrap:wrap;
+        }}
+        #{container_id} .kg-search {{
+          flex:1; min-width:120px; max-width:220px;
+          padding:5px 10px; border-radius:8px;
+          background:{input_bg}; border:1px solid {input_border};
+          color:{label_fill}; font-size:12px; outline:none;
+        }}
+        #{container_id} .kg-search::placeholder {{ color:{muted_fill}; }}
+        #{container_id} .kg-search:focus {{ border-color:rgba(56,168,245,0.6); }}
+        #{container_id} .kg-filters {{ display:flex; gap:4px; flex-wrap:wrap; }}
+        #{container_id} .kg-filter {{
+          padding:4px 9px; border-radius:7px; font-size:11px; font-weight:600;
+          border:1px solid {ctrl_border}; background:transparent;
+          color:{btn_col}; cursor:pointer; transition:all 120ms ease;
+        }}
+        #{container_id} .kg-filter:hover {{ background:rgba(56,168,245,0.12); border-color:rgba(56,168,245,0.4); }}
+        #{container_id} .kg-filter.active {{
+          background:rgba(56,168,245,0.18); border-color:rgba(56,168,245,0.5);
+          color:#38a8f5;
+        }}
+        #{container_id} .kg-btn {{
+          padding:4px 10px; border-radius:7px; font-size:11px; font-weight:600;
+          border:1px solid {ctrl_border}; background:transparent;
+          color:{btn_col}; cursor:pointer; transition:all 120ms ease;
+        }}
+        #{container_id} .kg-btn:hover {{ background:rgba(255,255,255,0.08); }}
+        #{container_id} .kg-stats {{
+          margin-left:auto; font-size:11px; color:{stat_col}; white-space:nowrap;
+        }}
+        #{container_id} .kg-canvas {{
+          width:100%; height:580px; position:relative; overflow:hidden;
+        }}
+        #{container_id} .kg-svg {{ width:100%; height:100%; }}
+        #{container_id} .kg-tip {{
+          position:absolute; pointer-events:none; display:none;
+          background:{tip_bg}; color:{tip_col};
+          border:1px solid {tip_border}; border-radius:10px;
+          padding:10px 13px; font-size:12px; line-height:1.5;
+          max-width:240px; white-space:pre-wrap; word-break:break-all;
+          box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:99;
+        }}
+        #{container_id} .kg-tip .tip-type {{
+          display:inline-block; font-size:10px; font-weight:700;
+          padding:2px 6px; border-radius:4px; margin-bottom:6px;
+          text-transform:uppercase; letter-spacing:0.06em;
+        }}
+        #{container_id} .kg-tip .tip-label {{
+          font-size:13px; font-weight:700; margin-bottom:2px;
+          word-break:break-word; white-space:normal;
+        }}
+        #{container_id} .kg-tip .tip-sub {{
+          font-size:11px; opacity:0.6; white-space:normal; word-break:break-all;
+        }}
+        #{container_id} .kg-legend {{
+          display:flex; gap:14px; flex-wrap:wrap; padding:8px 14px;
+          background:{ctrl_bg}; border-top:1px solid {ctrl_border};
+          font-size:11px; color:{muted_fill};
+        }}
+        #{container_id} .kg-legend-item {{
+          display:flex; align-items:center; gap:5px;
+        }}
+        #{container_id} .kg-legend-dot {{
+          width:9px; height:9px; border-radius:50%; flex-shrink:0;
+        }}
+        #{container_id} .kg-legend-line {{
+          width:18px; height:2px; border-radius:1px; flex-shrink:0;
+        }}
+        /* Highlight.js code block overrides */
+        #{container_id} .hljs {{
+          background: {'#1a1f2e' if is_dark else '#fafbfc'} !important;
+          padding: 0 !important;
+        }}
+        #{container_id} pre {{
+          margin: 0 !important;
+          background: {'#1a1f2e' if is_dark else '#fafbfc'} !important;
+        }}
+        /* Tiny icon on clickable file nodes */
+        #{container_id} .kg-node text[font-size="8"] {{
+          font-family: monospace;
+          font-size: 7px;
+        }}
+      </style>
+
+      <!-- Controls -->
+      <div class="kg-controls">
+        <input class="kg-search" id="{container_id}-search" placeholder="Search nodes…" type="search" />
+        <div class="kg-filters">
+          <button class="kg-filter active" data-filter="all">All</button>
+          <button class="kg-filter" data-filter="dir">Dirs</button>
+          <button class="kg-filter" data-filter="file">Files</button>
+          <button class="kg-filter" data-filter="class">Classes</button>
+          <button class="kg-filter" data-filter="function">Functions</button>
+        </div>
+        <button class="kg-btn" id="{container_id}-physics">⏸ Pause</button>
+        <button class="kg-btn" id="{container_id}-recenter">⊕ Center</button>
+        <span class="kg-stats">{n_nodes} nodes · {n_links} edges</span>
+      </div>
+
+      <!-- Graph canvas -->
+      <div class="kg-canvas" id="{container_id}-canvas">
+        <svg class="kg-svg" id="{container_id}-svg"></svg>
+        <div class="kg-tip" id="{container_id}-tip"></div>
+      </div>
+
+      <!-- Code viewer modal -->
+      <div id="{container_id}-modal" style="
+        display:none; position:absolute; inset:0; z-index:200;
+        align-items:flex-start; justify-content:center;
+        background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);
+        padding:24px 20px; overflow-y:auto;
+      ">
+        <div style="
+          width:100%; max-width:860px; border-radius:14px;
+          background:{tip_bg}; border:1px solid {tip_border};
+          box-shadow:0 24px 80px rgba(0,0,0,0.5);
+          overflow:hidden; display:flex; flex-direction:column;
+        ">
+          <!-- Modal header -->
+          <div style="
+            display:flex; align-items:center; gap:10px;
+            padding:13px 16px; border-bottom:1px solid {tip_border};
+            background:{'rgba(255,255,255,0.04)' if is_dark else 'rgba(0,0,0,0.03)'};
+            flex-shrink:0;
+          ">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{('#38a8f5')}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <span id="{container_id}-modal-title" style="
+              font-family:monospace; font-size:12px; font-weight:600;
+              color:{tip_col}; flex:1; min-width:0;
+              overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+            "></span>
+            <span id="{container_id}-modal-lang" style="
+              padding:2px 7px; border-radius:5px; font-size:10px; font-weight:700;
+              background:rgba(56,168,245,0.15); color:#38a8f5;
+              text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0;
+            "></span>
+            <span id="{container_id}-modal-trunc" style="
+              font-size:10px; opacity:0.45; color:{tip_col}; flex-shrink:0;
+            "></span>
+            <button id="{container_id}-modal-close" style="
+              background:none; border:none; cursor:pointer; padding:4px 6px;
+              border-radius:6px; font-size:16px; line-height:1;
+              color:{tip_col}; opacity:0.5; flex-shrink:0;
+              transition:opacity 100ms ease;
+            " onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">&#10005;</button>
+          </div>
+          <!-- Code area -->
+          <div style="overflow:auto; max-height:520px; font-size:12.5px; line-height:1.6;">
+            <pre style="margin:0; padding:0;"><code id="{container_id}-modal-code" style="
+              display:block; padding:16px 18px;
+              font-family:'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+              font-size:12.5px; line-height:1.65; tab-size:2;
+              white-space:pre; overflow-x:auto;
+            "></code></pre>
+          </div>
+          <!-- Read-only footer -->
+          <div style="
+            padding:7px 16px; border-top:1px solid {tip_border};
+            font-size:10px; color:{tip_col}; opacity:0.35;
+            display:flex; align-items:center; gap:6px; flex-shrink:0;
+          ">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Read-only view &middot; Press Esc to close
+          </div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="kg-legend">
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:#38a8f5;"></div>Directory / Repo root</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:#4b8bbe;"></div>Python file</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:#22c55e;"></div>Test file</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:#f59e0b;"></div>Class</div>
+        <div class="kg-legend-item"><div class="kg-legend-dot" style="background:#a855f7;"></div>Function</div>
+        <div class="kg-legend-item"><div class="kg-legend-line" style="background:#38a8f5; opacity:0.5;"></div>Contains</div>
+        <div class="kg-legend-item"><div class="kg-legend-line" style="background:#a855f7; opacity:0.5; border-top:2px dashed #a855f7; height:0;"></div>Defines</div>
+        <div class="kg-legend-item"><div class="kg-legend-line" style="background:#22c55e; opacity:0.5;"></div>Tests</div>
+        <div class="kg-legend-item" style="margin-left:auto; opacity:0.7;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Click a file to view code &nbsp;·&nbsp; Click dir/symbol to explore connections
+        </div>
+      </div>
+    </div>
+
+    <!-- highlight.js for syntax coloring in the code modal -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/{'atom-one-dark' if is_dark else 'atom-one-light'}.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script>
+    (function() {{
+      const MAX_LINES_PER_FILE = {MAX_LINES_PER_FILE};
+      const GRAPH = {graph_json};
+      const nodes = GRAPH.nodes.map(d => Object.assign({{}}, d));
+      const links = GRAPH.links.map(d => Object.assign({{}}, d));
+
+      const root   = document.getElementById('{container_id}');
+      const canvas = document.getElementById('{container_id}-canvas');
+      const svgEl  = document.getElementById('{container_id}-svg');
+      const tip    = document.getElementById('{container_id}-tip');
+      const searchInput  = document.getElementById('{container_id}-search');
+      const physicsBtn   = document.getElementById('{container_id}-physics');
+      const recenterBtn  = document.getElementById('{container_id}-recenter');
+
+      function setFrameHeight(h) {{
+        try {{ if (window.Streamlit) {{ window.Streamlit.setFrameHeight(h); return; }} }} catch(e) {{}}
+        try {{ window.parent.postMessage({{ type:'streamlit:setFrameHeight', height:h }}, '*'); }} catch(e) {{}}
+      }}
+      function refreshHeight() {{ setFrameHeight(root.scrollHeight + 8); }}
+
+      const W = canvas.clientWidth || 800;
+      const H = 580;
+
+      const svg = d3.select(svgEl)
+        .attr('width', W).attr('height', H);
+
+      // ── Defs: glow filters ────────────────────────────────────────────────
+      const defs = svg.append('defs');
+
+      function makeGlow(id, color, stdDev) {{
+        const f = defs.append('filter').attr('id', id)
+          .attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+        f.append('feGaussianBlur').attr('in', 'SourceGraphic')
+          .attr('stdDeviation', stdDev).attr('result', 'blur');
+        const merge = f.append('feMerge');
+        merge.append('feMergeNode').attr('in', 'blur');
+        merge.append('feMergeNode').attr('in', 'SourceGraphic');
+      }}
+      makeGlow('{container_id}-glow-blue', '#38a8f5', 4);
+      makeGlow('{container_id}-glow-green', '#22c55e', 3);
+      makeGlow('{container_id}-glow-amber', '#f59e0b', 3);
+      makeGlow('{container_id}-glow-purple', '#a855f7', 3);
+      makeGlow('{container_id}-glow-dim', '#999', 2);
+
+      // Subtle dot-grid background
+      const bgPat = defs.append('pattern')
+        .attr('id', '{container_id}-dots').attr('patternUnits','userSpaceOnUse')
+        .attr('width', 28).attr('height', 28);
+      bgPat.append('circle').attr('cx',14).attr('cy',14).attr('r',1)
+        .attr('fill', '{dot_color}');
+      svg.insert('rect','g').attr('width','100%').attr('height','100%')
+        .attr('fill', 'url(#{container_id}-dots)');
+
+      // ── Zoom/pan ──────────────────────────────────────────────────────────
+      const zoomGroup = svg.append('g').attr('class', 'zoom-root');
+      const zoom = d3.zoom()
+        .scaleExtent([0.15, 6])
+        .on('zoom', (event) => zoomGroup.attr('transform', event.transform));
+      svg.call(zoom).on('dblclick.zoom', null);
+
+      // ── Link helper ───────────────────────────────────────────────────────
+      function linkColor(d) {{
+        return ({{ contains:'#38a8f5', defines:'#a855f7', tests:'#22c55e' }})[d.type] || '#64748b';
+      }}
+      function linkWidth(d) {{
+        return ({{ contains:1.4, defines:0.9, tests:1.2 }})[d.type] || 1;
+      }}
+      function linkOpacity(d) {{
+        return ({{ contains:0.35, defines:0.45, tests:0.55 }})[d.type] || 0.3;
+      }}
+      function linkDash(d) {{
+        return d.type === 'defines' ? '4,3' : null;
+      }}
+
+      // ── Render links ──────────────────────────────────────────────────────
+      const linkSel = zoomGroup.append('g').attr('class', 'links')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', linkColor)
+        .attr('stroke-width', linkWidth)
+        .attr('stroke-opacity', linkOpacity)
+        .attr('stroke-dasharray', linkDash);
+
+      // ── Node glow map ──────────────────────────────────────────────────────
+      function glowId(d) {{
+        if (d.type === 'root' || d.type === 'dir') return '{container_id}-glow-blue';
+        if (d.type === 'file' && d.is_test) return '{container_id}-glow-green';
+        if (d.type === 'class') return '{container_id}-glow-amber';
+        if (d.type === 'function') return '{container_id}-glow-purple';
+        return '{container_id}-glow-dim';
+      }}
+
+      // ── Render nodes ──────────────────────────────────────────────────────
+      const nodeSel = zoomGroup.append('g').attr('class', 'nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .attr('class', d => 'kg-node kg-type-' + d.type)
+        .style('cursor', 'pointer');
+
+      // Outer glow ring (appears on hover/select)
+      nodeSel.append('circle')
+        .attr('class', 'node-ring')
+        .attr('r', d => (d.r || 7) + 5)
+        .attr('fill', 'none')
+        .attr('stroke', d => d.color)
+        .attr('stroke-width', 1.5)
+        .attr('stroke-opacity', 0)
+        .attr('filter', d => 'url(#' + glowId(d) + ')');
+
+      // Main circle
+      nodeSel.append('circle')
+        .attr('class', 'node-circle')
+        .attr('r', d => d.r || 7)
+        .attr('fill', d => d.color)
+        .attr('fill-opacity', d => d.type === 'root' ? 0.95 : 0.82)
+        .attr('stroke', d => d.color)
+        .attr('stroke-width', d => d.type === 'root' ? 3 : 1.5)
+        .attr('stroke-opacity', 0.6)
+        .attr('filter', d => 'url(#' + glowId(d) + ')');
+
+      // Label
+      nodeSel.append('text')
+        .attr('class', 'node-label')
+        .attr('dy', d => (d.r || 7) + 11)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '{label_fill}')
+        .attr('font-size', d => d.type === 'root' ? 11 : (d.type === 'dir' ? 10 : 9))
+        .attr('font-weight', d => (d.type === 'root' || d.type === 'dir') ? 700 : 400)
+        .attr('pointer-events', 'none')
+        .text(d => {{
+          const lbl = d.label || '';
+          return lbl.length > 22 ? lbl.slice(0, 20) + '…' : lbl;
+        }});
+
+      // ── Drag ─────────────────────────────────────────────────────────────
+      const drag = d3.drag()
+        .on('start', (event, d) => {{
+          if (!event.active) sim.alphaTarget(0.3).restart();
+          d.fx = d.x; d.fy = d.y;
+        }})
+        .on('drag', (event, d) => {{ d.fx = event.x; d.fy = event.y; }})
+        .on('end', (event, d) => {{
+          if (!event.active) sim.alphaTarget(0);
+          if (!d._pinned) {{ d.fx = null; d.fy = null; }}
+        }});
+      nodeSel.call(drag);
+
+      // ── Code viewer modal ─────────────────────────────────────────────────
+      const FILE_CONTENTS = {content_json};
+      const codeModal = document.getElementById('{container_id}-modal');
+      const codeModalClose = document.getElementById('{container_id}-modal-close');
+      const codeModalTitle = document.getElementById('{container_id}-modal-title');
+      const codeModalLang = document.getElementById('{container_id}-modal-lang');
+      const codeModalTrunc = document.getElementById('{container_id}-modal-trunc');
+      const codeEl = document.getElementById('{container_id}-modal-code');
+
+      function openCodeModal(d) {{
+        const fc = FILE_CONTENTS[d.full_path];
+        if (!fc) return false;
+        codeModalTitle.textContent = d.full_path || d.label;
+        codeModalLang.textContent = fc.lang || d.ext || 'text';
+        codeModalTrunc.textContent = fc.truncated
+          ? 'Showing first ' + {MAX_LINES_PER_FILE} + ' of ' + fc.total_lines + ' lines'
+          : fc.total_lines + ' lines';
+        codeEl.className = 'language-' + (fc.lang || 'plaintext');
+        codeEl.textContent = fc.content;
+        if (window.hljs) {{ window.hljs.highlightElement(codeEl); }}
+        codeModal.style.display = 'flex';
+        refreshHeight();
+        return true;
+      }}
+      function closeCodeModal() {{
+        codeModal.style.display = 'none';
+        refreshHeight();
+      }}
+      codeModalClose.addEventListener('click', closeCodeModal);
+      codeModal.addEventListener('click', (e) => {{ if (e.target === codeModal) closeCodeModal(); }});
+      document.addEventListener('keydown', (e) => {{ if (e.key === 'Escape') closeCodeModal(); }});
+
+      // ── Click: file → code viewer, others → pin/highlight ─────────────────
+      let selected = null;
+      nodeSel.on('click', (event, d) => {{
+        event.stopPropagation();
+        tip.style.display = 'none';
+        // File nodes with content → open code modal
+        if (d.type === 'file' && d.has_content) {{
+          openCodeModal(d);
+          return;
+        }}
+        // Other nodes → pin + highlight neighbors
+        if (selected === d.id) {{
+          selected = null;
+          d._pinned = false; d.fx = null; d.fy = null;
+          resetHighlight();
+        }} else {{
+          selected = d.id;
+          d._pinned = true; d.fx = d.x; d.fy = d.y;
+          highlightNeighbors(d);
+        }}
+      }});
+      svg.on('click', () => {{
+        if (selected) {{
+          const nd = nodes.find(n => n.id === selected);
+          if (nd) {{ nd._pinned = false; nd.fx = null; nd.fy = null; }}
+          selected = null;
+          resetHighlight();
+        }}
+      }});
+
+      // ── Neighbor index ────────────────────────────────────────────────────
+      function buildNeighborIndex() {{
+        const idx = {{}};
+        links.forEach(l => {{
+          const s = typeof l.source === 'object' ? l.source.id : l.source;
+          const t = typeof l.target === 'object' ? l.target.id : l.target;
+          idx[s] = idx[s] || new Set();
+          idx[t] = idx[t] || new Set();
+          idx[s].add(t); idx[t].add(s);
+        }});
+        return idx;
+      }}
+      let neighborIdx = {{}};
+      function highlightNeighbors(d) {{
+        const neighbors = neighborIdx[d.id] || new Set();
+        nodeSel.each(function(n) {{
+          const isNeighbor = neighbors.has(n.id) || n.id === d.id;
+          d3.select(this).select('.node-circle')
+            .attr('fill-opacity', isNeighbor ? 1 : 0.12)
+            .attr('stroke-opacity', isNeighbor ? 0.9 : 0.08);
+          d3.select(this).select('.node-label')
+            .attr('fill', isNeighbor ? '{label_fill}' : '{muted_fill}')
+            .attr('font-weight', n.id === d.id ? 800 : 400);
+          d3.select(this).select('.node-ring')
+            .attr('stroke-opacity', n.id === d.id ? 0.55 : 0);
+        }});
+        linkSel
+          .attr('stroke-opacity', l => {{
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return (s === d.id || t === d.id) ? 0.75 : 0.04;
+          }})
+          .attr('stroke-width', l => {{
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return (s === d.id || t === d.id) ? linkWidth(l) * 2.5 : linkWidth(l);
+          }});
+      }}
+      function resetHighlight() {{
+        nodeSel.select('.node-circle')
+          .attr('fill-opacity', d => d.type === 'root' ? 0.95 : 0.82)
+          .attr('stroke-opacity', 0.6);
+        nodeSel.select('.node-label').attr('fill', '{label_fill}').attr('font-weight', d => (d.type === 'root' || d.type === 'dir') ? 700 : 400);
+        nodeSel.select('.node-ring').attr('stroke-opacity', 0);
+        linkSel.attr('stroke-opacity', linkOpacity).attr('stroke-width', linkWidth);
+        applyFilter(currentFilter);
+      }}
+
+      // ── Hover tooltip ─────────────────────────────────────────────────────
+      const TYPE_BADGE_STYLE = {{
+        root:     'background:rgba(56,168,245,0.25); color:#38a8f5;',
+        dir:      'background:rgba(56,168,245,0.2); color:#38a8f5;',
+        file:     'background:rgba(100,116,139,0.25); color:#94a3b8;',
+        class:    'background:rgba(245,158,11,0.25); color:#f59e0b;',
+        function: 'background:rgba(168,85,247,0.25); color:#a855f7;',
+      }};
+      // Add a small "doc" icon on file nodes that have viewable content
+      nodeSel.filter(d => d.type === 'file' && d.has_content)
+        .append('text')
+        .attr('dy', d => -(d.r || 7) - 3)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 8)
+        .attr('fill', d => d.color)
+        .attr('fill-opacity', 0.9)
+        .attr('pointer-events', 'none')
+        .text('⟨/⟩');
+
+      nodeSel
+        .on('mouseenter', function(event, d) {{
+          if (codeModal.style.display === 'flex') return;
+          const rect = canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          const badgeStyle = TYPE_BADGE_STYLE[d.type] || '';
+          const typeLabel = d.type === 'function' ? 'def' : d.type;
+          const subLine = d.full_path || d.file_path || d.full_label || '';
+          const hasCode = d.type === 'file' && d.has_content;
+          const extra = d.child_count
+            ? '<div style="opacity:0.55;font-size:10px;margin-top:3px;">' + d.child_count + ' direct files</div>'
+            : (d.ext ? '<div style="opacity:0.55;font-size:10px;margin-top:3px;">.' + d.ext + '</div>' : '');
+          const cta = hasCode
+            ? '<div style="margin-top:7px;padding:4px 8px;border-radius:5px;background:rgba(56,168,245,0.15);border:1px solid rgba(56,168,245,0.3);font-size:10px;font-weight:600;color:#38a8f5;text-align:center;">Click to view code</div>'
+            : '';
+          tip.innerHTML = '<span class="tip-type" style="' + badgeStyle + '">' + typeLabel + '</span><div class="tip-label">' + (d.label || '') + '</div>' + (subLine ? '<div class="tip-sub">' + subLine + '</div>' : '') + extra + cta;
+          tip.style.display = 'block';
+          const tw = tip.offsetWidth, th = tip.offsetHeight;
+          let tx = x + 14, ty = y - 10;
+          if (tx + tw > W - 10) tx = x - tw - 14;
+          if (ty + th > H - 10) ty = y - th - 10;
+          tip.style.left = tx + 'px';
+          tip.style.top  = ty + 'px';
+          if (selected === null) {{
+            d3.select(this).select('.node-ring').attr('stroke-opacity', hasCode ? 0.7 : 0.45);
+          }}
+        }})
+        .on('mouseleave', function(event, d) {{
+          tip.style.display = 'none';
+          if (selected === null) {{
+            d3.select(this).select('.node-ring').attr('stroke-opacity', 0);
+          }}
+        }});
+
+      // ── Force simulation ─────────────────────────────────────────────────
+      const sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id)
+          .distance(d => ({{ contains: 85, defines: 42, tests: 110 }})[d.type] || 90)
+          .strength(d => ({{ contains: 0.45, defines: 0.85, tests: 0.35 }})[d.type] || 0.3))
+        .force('charge', d3.forceManyBody()
+          .strength(d => ({{ root: -600, dir: -260, file: -80, class: -30, function: -30 }})[d.type] || -80)
+          .distanceMax(400))
+        .force('center', d3.forceCenter(W / 2, H / 2).strength(0.06))
+        .force('collide', d3.forceCollide(d => (d.r || 7) + 6).strength(0.7))
+        .alphaDecay(0.022);
+
+      sim.on('tick', () => {{
+        linkSel
+          .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        nodeSel.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
+      }});
+
+      // Build neighbor index after simulation resolves links
+      sim.on('end', () => {{ neighborIdx = buildNeighborIndex(); }});
+      // Also build immediately (links are already resolved by D3 after first tick)
+      setTimeout(() => {{ neighborIdx = buildNeighborIndex(); }}, 800);
+
+      // ── Physics toggle ────────────────────────────────────────────────────
+      let paused = false;
+      physicsBtn.addEventListener('click', () => {{
+        paused = !paused;
+        if (paused) {{ sim.stop(); physicsBtn.textContent = '▶ Resume'; }}
+        else {{ sim.alphaTarget(0.05).restart(); physicsBtn.textContent = '⏸ Pause'; setTimeout(() => sim.alphaTarget(0), 2000); }}
+      }});
+
+      // ── Recenter ─────────────────────────────────────────────────────────
+      recenterBtn.addEventListener('click', () => {{
+        svg.transition().duration(600).call(
+          zoom.transform,
+          d3.zoomIdentity.translate(W / 2, H / 2).scale(0.85).translate(-W / 2, -H / 2)
+        );
+      }});
+
+      // ── Search & filter ───────────────────────────────────────────────────
+      let currentFilter = 'all';
+      let searchTerm = '';
+
+      function applyFilter(filter) {{
+        currentFilter = filter;
+        nodeSel.each(function(d) {{
+          const typeMatch = filter === 'all' || d.type === filter;
+          const searchMatch = !searchTerm || (d.label || '').toLowerCase().includes(searchTerm) || (d.full_path || '').toLowerCase().includes(searchTerm);
+          const visible = typeMatch && searchMatch;
+          d3.select(this)
+            .attr('display', visible ? null : 'none')
+            .select('.node-circle').attr('fill-opacity', visible ? (d.type === 'root' ? 0.95 : 0.82) : 0);
+        }});
+        linkSel.attr('display', l => {{
+          const s = typeof l.source === 'object' ? l.source : nodes.find(n => n.id === l.source);
+          const t = typeof l.target === 'object' ? l.target : nodes.find(n => n.id === l.target);
+          const srcOk = !s || (filter === 'all' || s.type === filter) && (!searchTerm || (s.label || '').toLowerCase().includes(searchTerm) || (s.full_path || '').toLowerCase().includes(searchTerm));
+          const tgtOk = !t || (filter === 'all' || t.type === filter) && (!searchTerm || (t.label || '').toLowerCase().includes(searchTerm) || (t.full_path || '').toLowerCase().includes(searchTerm));
+          return (filter === 'all' && !searchTerm) || (srcOk && tgtOk) ? null : 'none';
+        }});
+      }}
+
+      root.querySelectorAll('.kg-filter').forEach(btn => {{
+        btn.addEventListener('click', () => {{
+          root.querySelectorAll('.kg-filter').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          applyFilter(btn.dataset.filter);
+        }});
+      }});
+
+      searchInput.addEventListener('input', () => {{
+        searchTerm = searchInput.value.trim().toLowerCase();
+        applyFilter(currentFilter);
+      }});
+
+      // Initial zoom to fit
+      setTimeout(() => {{
+        const allX = nodes.map(n => n.x).filter(Boolean);
+        const allY = nodes.map(n => n.y).filter(Boolean);
+        if (allX.length) {{
+          const x0 = Math.min(...allX), x1 = Math.max(...allX);
+          const y0 = Math.min(...allY), y1 = Math.max(...allY);
+          const pad = 60;
+          const scale = Math.min(0.9, (W - pad * 2) / (x1 - x0 + 1), (H - pad * 2) / (y1 - y0 + 1));
+          svg.transition().duration(800).call(
+            zoom.transform,
+            d3.zoomIdentity
+              .translate(W / 2, H / 2)
+              .scale(scale)
+              .translate(-(x0 + x1) / 2, -(y0 + y1) / 2)
+          );
+        }}
+      }}, 1600);
+
+      refreshHeight();
+      window.addEventListener('resize', refreshHeight);
+    }})();
+    </script>
+    """
+
+    components.html(html_block, height=720, scrolling=False)
 
 
 def render_metric_card(title: str, value: str) -> None:

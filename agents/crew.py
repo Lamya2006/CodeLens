@@ -241,6 +241,30 @@ def _strict_json_mode() -> bool:
     return "claude-opus-4.6" not in model_name and "claude-sonnet-4" not in model_name
 
 
+def _format_model_json_error(candidate: str, *, reason: str) -> str:
+    """Build a short, actionable error when LLM output is not valid JSON (avoid multi-KB dumps)."""
+    collapsed = " ".join(candidate.strip().split())
+    if len(collapsed) > 320:
+        collapsed = collapsed[:317] + "..."
+    extra = ""
+    low = collapsed[:240].lower()
+    if "import " in low and ("from '" in low or 'from "' in low):
+        extra = (
+            " The preview looks like JavaScript/TypeScript source, not JSON — "
+            "the model may have echoed a repo file instead of the requested schema."
+        )
+    elif "```" in candidate:
+        extra = " Markdown code fences may be malformed or the inner content is not JSON."
+    hints = (
+        "Try: raise OPENROUTER_MAX_TOKENS if JSON is truncated; use CREW_STRICT_JSON=1 when your provider "
+        "supports schema mode; or switch to a model that follows JSON-only instructions."
+    )
+    return (
+        f"Model output could not be parsed as a JSON object ({reason}).{extra}\n\n"
+        f"Preview: {collapsed!r}\n\n{hints}"
+    )
+
+
 def _extract_json_object(text: str) -> dict[str, Any]:
     stripped = text.strip()
     if stripped.startswith("```"):
@@ -250,6 +274,7 @@ def _extract_json_object(text: str) -> dict[str, Any]:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         stripped = "\n".join(lines).strip()
+
     try:
         parsed = json.loads(stripped)
         if isinstance(parsed, dict):
@@ -260,8 +285,19 @@ def _extract_json_object(text: str) -> dict[str, Any]:
     start = stripped.find("{")
     end = stripped.rfind("}")
     if start == -1 or end == -1 or end <= start:
-        raise ValueError("Model output did not contain a valid JSON object.")
-    return json.loads(stripped[start : end + 1])
+        raise ValueError(
+            _format_model_json_error(stripped, reason="no `{ ... }` JSON object found in the response"),
+        )
+    slice_ = stripped[start : end + 1]
+    try:
+        parsed = json.loads(slice_)
+    except json.JSONDecodeError as exc:
+        raise ValueError(_format_model_json_error(slice_, reason=f"{exc.msg} near position {exc.pos}")) from None
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            _format_model_json_error(slice_, reason="parsed JSON is not an object (expected a single `{...}` dict)"),
+        )
+    return parsed
 
 
 def _avg_int(values: list[Any]) -> int | None:
