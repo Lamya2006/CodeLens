@@ -146,19 +146,27 @@ def inject_global_styles() -> None:
             --accent-blue-hover: #64b8f7;
             --accent-blue-light: rgba(56, 168, 245, 0.2);
             --text-primary: #f0f6ff;
-            --text-secondary: #94a3b8;
-            --text-muted: #4a5568;
+            --text-secondary: #b8cce0;
+            --text-muted: #7a90aa;
             --score-green: #4ade80;
             --score-yellow: #fbbf24;
             --score-red: #fb7185;
             --card-glow: rgba(56, 168, 245, 0.18);
             --surface-white: rgba(255, 255, 255, 0.82);
             --status-border: rgba(56, 168, 245, 0.45);
+            --stapp-bg-image: radial-gradient(circle at 15% 18%, rgba(56, 168, 245, 0.22), transparent 26%),
+                radial-gradient(circle at 86% 10%, rgba(255, 255, 255, 0.52), transparent 24%),
+                radial-gradient(circle at 78% 58%, rgba(56, 168, 245, 0.15), transparent 20%),
+                var(--bg-gradient);
         """
     else:
         theme_vars = """
-            --bg-base: #f0f6ff;
-            --bg-gradient: linear-gradient(160deg, #e8f4ff 0%, #f8fbff 50%, #ffffff 100%);
+            --bg-base: #b8e2ff;
+            --bg-gradient: linear-gradient(180deg, #7dcaf8 0%, #a8dcff 15%, #c8eeff 35%, #dff5ff 58%, #f5fcff 82%, #ffffff 100%);
+            --stapp-bg-image: radial-gradient(ellipse 130% 42% at 50% -4%, rgba(90, 190, 255, 0.55), transparent 52%),
+                radial-gradient(circle at 8% 6%, rgba(56, 168, 245, 0.38), transparent 28%),
+                radial-gradient(circle at 92% 9%, rgba(147, 210, 255, 0.42), transparent 26%),
+                var(--bg-gradient);
             --glass-bg: rgba(255, 255, 255, 0.45);
             --glass-bg-hover: rgba(255, 255, 255, 0.65);
             --glass-bg-inner: rgba(255, 255, 255, 0.62);
@@ -205,12 +213,17 @@ def inject_global_styles() -> None:
 
             .stApp {{
                 background-color: var(--bg-base);
-                background-image:
-                    radial-gradient(circle at 15% 18%, rgba(56, 168, 245, 0.22), transparent 26%),
-                    radial-gradient(circle at 86% 10%, rgba(255, 255, 255, 0.52), transparent 24%),
-                    radial-gradient(circle at 78% 58%, rgba(56, 168, 245, 0.15), transparent 20%),
-                    var(--bg-gradient);
+                background-image: var(--stapp-bg-image);
                 background-attachment: fixed;
+            }}
+
+            [data-testid="stSidebarCollapseButton"] button,
+            [data-testid="collapsedControl"] button {{
+                color: var(--text-primary) !important;
+                background: var(--glass-bg-inner) !important;
+                border: 1px solid var(--glass-border-subtle) !important;
+                border-radius: 10px !important;
+                box-shadow: var(--glass-shadow) !important;
             }}
 
             [data-testid="stAppViewContainer"] {{
@@ -483,31 +496,68 @@ def inject_global_styles() -> None:
                 text-transform: uppercase !important;
             }}
 
+            [data-testid="stTextInput"] [data-baseweb="base-input"],
+            [data-testid="stTextArea"] [data-baseweb="base-input"],
+            [data-testid="stTextInput"] > div,
+            [data-testid="stTextArea"] > div {{
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 12px !important;
+            }}
+
             [data-testid="stTextInput"] input,
-            [data-testid="stTextArea"] textarea,
-            [data-testid="stFileUploaderDropzone"] {{
-                background: var(--glass-bg) !important;
-                color: var(--text-primary) !important;
-                border: 1px solid var(--glass-border-subtle) !important;
-                border-top: 1px solid var(--top-edge-highlight) !important;
-                border-radius: 14px !important;
+            [data-testid="stTextArea"] textarea {{
+                background: rgba(255, 255, 255, 0.88) !important;
+                color: #0a0f1e !important;
+                border: 1px solid rgba(200, 220, 255, 0.6) !important;
+                border-radius: 12px !important;
                 padding: 12px 16px !important;
-                backdrop-filter: var(--glass-blur) !important;
-                -webkit-backdrop-filter: var(--glass-blur) !important;
-                box-shadow: var(--glass-shadow) !important;
+                box-shadow: 0 2px 8px rgba(100, 160, 255, 0.08) !important;
                 transition: all 0.18s var(--ease-swift) !important;
             }}
 
             [data-testid="stTextInput"] input::placeholder,
             [data-testid="stTextArea"] textarea::placeholder {{
-                color: var(--text-muted) !important;
+                color: #94a3b8 !important;
             }}
 
             [data-testid="stTextInput"] input:focus,
-            [data-testid="stTextArea"] textarea:focus,
-            [data-testid="stFileUploaderDropzone"]:focus-within {{
+            [data-testid="stTextArea"] textarea:focus {{
                 border-color: var(--accent-blue) !important;
-                box-shadow: 0 0 0 3px rgba(56, 168, 245, 0.15), var(--glass-shadow) !important;
+                box-shadow: 0 0 0 3px rgba(56, 168, 245, 0.15), 0 2px 8px rgba(100, 160, 255, 0.08) !important;
+                outline: none !important;
+            }}
+
+            [data-testid="stFileUploaderDropzone"] {{
+                background: rgba(255, 255, 255, 0.88) !important;
+                border: 1px dashed rgba(56, 168, 245, 0.45) !important;
+                border-radius: 12px !important;
+                box-shadow: 0 2px 8px rgba(100, 160, 255, 0.08) !important;
+                transition: all 0.18s var(--ease-swift) !important;
+            }}
+
+            [data-testid="stFileUploaderDropzone"]:hover {{
+                border-color: var(--accent-blue) !important;
+                background: rgba(255, 255, 255, 0.96) !important;
+            }}
+
+            [data-testid="stFileUploaderDropzone"] button {{
+                color: var(--accent-blue) !important;
+                background: rgba(56, 168, 245, 0.1) !important;
+                border: 1px solid rgba(56, 168, 245, 0.35) !important;
+                border-radius: 8px !important;
+            }}
+
+            [data-testid="stFileUploaderDropzone"] small,
+            [data-testid="stFileUploaderDropzone"] span,
+            [data-testid="stFileUploaderDropzone"] p {{
+                color: var(--text-secondary) !important;
+            }}
+
+            [data-testid="stFileUploaderDropzone"] svg {{
+                color: var(--accent-blue) !important;
+                stroke: var(--accent-blue) !important;
             }}
 
             .stButton > button {{
@@ -912,6 +962,86 @@ def inject_global_styles() -> None:
                 animation: fadeSlideUp 0.2s var(--ease-swift) forwards;
             }}
 
+            .cl-brand-title-row {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }}
+
+            .cl-brand-logo-wrap {{
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                line-height: 0;
+            }}
+
+            .cl-brand-logo-svg {{
+                display: block;
+            }}
+
+            .cl-wordmark {{
+                display: inline-flex;
+                align-items: baseline;
+                gap: 0;
+                font-weight: 600;
+                letter-spacing: -0.02em;
+                line-height: 1;
+            }}
+
+            .cl-wordmark span:first-of-type {{
+                color: var(--text-primary);
+            }}
+
+            .cl-wordmark span:last-of-type {{
+                color: var(--accent-blue);
+            }}
+
+            .cl-brand-tagline {{
+                flex-basis: 100%;
+                margin: 0;
+                font-size: 14px;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                font-weight: 400;
+            }}
+
+            .cl-brand-tagline--sidebar {{
+                font-size: 11px;
+                line-height: 1.45;
+                margin-top: 10px;
+                color: var(--text-muted);
+            }}
+
+            .app-header {{
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 16px;
+                flex-wrap: wrap;
+                margin-bottom: 8px;
+            }}
+
+            .app-header-subtitle {{
+                margin-top: 8px;
+                font-size: 14px;
+                color: var(--text-secondary);
+                line-height: 1.5;
+            }}
+
+            .app-header-chip {{
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--text-muted);
+                padding: 8px 12px;
+                border-radius: 999px;
+                border: 1px solid var(--glass-border-subtle);
+                background: var(--glass-bg-inner);
+            }}
+
             @media (max-width: 980px) {{
                 [data-testid="stSidebar"] {{
                     min-width: auto;
@@ -949,6 +1079,21 @@ def inject_global_styles() -> None:
     )
 
 
+BRAND_TAGLINE = "Intelligent code review for technical hiring."
+
+
+def _brand_logo_svg(*, size: int = 28) -> str:
+    return (
+        f'<svg class="brand-logo-svg cl-brand-logo-svg" width="{size}" height="{size}" '
+        'viewBox="0 0 32 32" aria-hidden="true" focusable="false">'
+        '<circle cx="16" cy="16" r="11" fill="none" stroke="var(--accent-blue)" stroke-width="2.2"/>'
+        '<path d="M16 9 A7 7 0 0 1 23 16" fill="none" stroke="rgba(56, 168, 245, 0.42)" stroke-width="2.2" '
+        'stroke-linecap="round"/>'
+        '<circle cx="16" cy="16" r="4" fill="var(--accent-blue)" opacity="0.25"/>'
+        "</svg>"
+    )
+
+
 def init_session_state() -> None:
     st.session_state.setdefault("last_result", None)
     st.session_state.setdefault("last_error", None)
@@ -956,7 +1101,9 @@ def init_session_state() -> None:
     st.session_state.setdefault("user", None)
     st.session_state.setdefault("oauth_state", None)
     st.session_state.setdefault("active_view", "overview")
-    st.session_state.setdefault("theme", "light")
+    if "theme" not in st.session_state:
+        qp_theme = st.query_params.get("theme", "light")
+        st.session_state["theme"] = qp_theme if qp_theme in ("light", "dark") else "light"
     st.session_state.setdefault("main_tab", "Analyze")
     st.session_state.setdefault("overview_section", "skill_map")
     st.session_state.setdefault("last_github_url", "")
@@ -1280,11 +1427,14 @@ def build_code_sample(files: list[dict[str, Any]], max_chars: int = 6000) -> str
 
 def render_app_header() -> None:
     st.markdown(
-        """
+        f"""
         <div class="app-header">
             <div class="app-header-copy">
-                <div class="logo-mark">CodeLens</div>
-                <div class="app-header-subtitle">Intelligent code review for technical hiring, AI usage signals, and resume-backed repository analysis.</div>
+                <div class="cl-brand-title-row">
+                    <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=32)}</div>
+                    <div class="cl-wordmark" style="font-size:1.75rem;"><span>Code</span><span>Lens</span></div>
+                </div>
+                <div class="app-header-subtitle">{html.escape(BRAND_TAGLINE)}</div>
             </div>
             <div class="app-header-chip">Repository Insight Dashboard</div>
         </div>
@@ -1391,14 +1541,50 @@ def render_recent_history() -> None:
 def render_sidebar() -> None:
     with st.sidebar:
         st.markdown(
-            '<div class="cl-wordmark" style="padding:24px 8px 8px 8px;"><span>Code</span><span>Lens</span></div>',
+            f"""
+            <div style="padding:20px 8px 12px 8px;">
+                <div class="cl-brand-title-row">
+                    <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=26)}</div>
+                    <div class="cl-wordmark" style="font-size:1.35rem;"><span>Code</span><span>Lens</span></div>
+                </div>
+                <p class="cl-brand-tagline cl-brand-tagline--sidebar">{html.escape(BRAND_TAGLINE)}</p>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         if "cl_appearance_toggle" not in st.session_state:
             st.session_state.cl_appearance_toggle = st.session_state.get("theme", "light") == "dark"
-        st.toggle("Dark appearance", key="cl_appearance_toggle")
+        _tc1, _tc2, _tc3 = st.columns([1, 3, 1])
+        with _tc1:
+            st.markdown(
+                '<div style="display:flex; justify-content:flex-end; align-items:center; height:38px; padding-right:4px;">'
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
+                '<circle cx="12" cy="12" r="5"/>'
+                '<line x1="12" y1="1" x2="12" y2="3"/>'
+                '<line x1="12" y1="21" x2="12" y2="23"/>'
+                '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>'
+                '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>'
+                '<line x1="1" y1="12" x2="3" y2="12"/>'
+                '<line x1="21" y1="12" x2="23" y2="12"/>'
+                '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>'
+                '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+                '</svg></div>',
+                unsafe_allow_html=True,
+            )
+        with _tc2:
+            st.toggle("Appearance", key="cl_appearance_toggle", label_visibility="collapsed")
+        with _tc3:
+            st.markdown(
+                '<div style="display:flex; justify-content:flex-start; align-items:center; height:38px; padding-left:4px;">'
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.8;">'
+                '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+                '</svg></div>',
+                unsafe_allow_html=True,
+            )
         if st.session_state.cl_appearance_toggle != (st.session_state.get("theme", "light") == "dark"):
-            st.session_state["theme"] = "dark" if st.session_state.cl_appearance_toggle else "light"
+            new_theme = "dark" if st.session_state.cl_appearance_toggle else "light"
+            st.session_state["theme"] = new_theme
+            st.query_params["theme"] = new_theme
             st.rerun()
 
         st.markdown(
@@ -1425,24 +1611,20 @@ def render_sidebar() -> None:
                     border: none !important;
                     box-shadow: 0 2px 8px rgba(56, 168, 245, 0.3) !important;
                 }
+                /* Larger, outlined appearance toggle */
+                [data-testid="stSidebar"] [data-testid="stToggle"] > label {
+                    transform: scale(1.35);
+                    transform-origin: center;
+                }
+                [data-testid="stSidebar"] [data-testid="stToggle"] > label > div[data-checked="false"] {
+                    border: 2px solid var(--accent-blue) !important;
+                    background: transparent !important;
+                }
+                [data-testid="stSidebar"] [data-testid="stToggle"] > label > div[data-checked="true"] {
+                    border: 2px solid var(--accent-blue) !important;
+                    background: var(--accent-blue) !important;
+                }
             </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="sidebar-section-label">How analysis works</div>', unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div class="cl-glass-inner" style="padding:12px 14px; font-size:12px; line-height:1.55; color:var(--sidebar-fg);">
-            <ol style="margin:0; padding-left:18px;">
-            <li>Validate the GitHub repository and fetch commit history.</li>
-            <li>Index the codebase with GitNexus and embed chunks into Pinecone.</li>
-            <li>Compare style against human and AI baseline corpora.</li>
-            <li>Optionally parse a resume and job description for claim matching.</li>
-            <li>Run the LLM review (efficient mode: two calls by default) and apply output guardrails.
-            Set <span class="code-font" style="font-size:11px;">CREWAI_MODE=full</span> in <span class="code-font" style="font-size:11px;">.env</span> for the original multi-agent chain (more detail, higher cost).</li>
-            </ol>
-            </div>
             """,
             unsafe_allow_html=True,
         )
@@ -1477,27 +1659,6 @@ def render_sidebar() -> None:
             st.markdown('<div style="color:#8ea2bc; font-size:0.9rem;">Login to view history</div>', unsafe_allow_html=True)
 
         if user:
-            st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
-        nav_items = [
-            ("Overview", "overview"),
-            ("AI Usage", "ai_usage"),
-            ("Job Fit", "job_fit"),
-            ("Skill Map", "skill_map"),
-            ("Evaluation", "evaluation"),
-        ]
-        current_view = st.session_state.get("active_view", "overview")
-        if user:
-            for label, view_key in nav_items:
-                active = current_view == view_key
-                if st.button(
-                    label,
-                    key=f"sidebar-nav-{view_key}",
-                    use_container_width=True,
-                    type="primary" if active else "secondary",
-                ):
-                    set_active_view(view_key)
-                    st.rerun()
-
             render_recent_history()
 
         ready, detail = check_mcp_status()
@@ -1521,6 +1682,23 @@ def render_sidebar() -> None:
             st.session_state["last_error"] = None
             st.rerun()
 
+        st.markdown('<div class="sidebar-section-label" style="margin-top:16px;">How analysis works</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="cl-glass-inner" style="padding:12px 14px; font-size:12px; line-height:1.55; color:var(--sidebar-fg);">
+            <ol style="margin:0; padding-left:18px;">
+            <li>Validate the GitHub repository and fetch commit history.</li>
+            <li>Index the codebase with GitNexus and embed chunks into Pinecone.</li>
+            <li>Compare style against human and AI baseline corpora.</li>
+            <li>Optionally parse a resume and job description for claim matching.</li>
+            <li>Run the LLM review (efficient mode: two calls by default) and apply output guardrails.
+            Set <span class="code-font" style="font-size:11px;">CREWAI_MODE=full</span> in <span class="code-font" style="font-size:11px;">.env</span> for the original multi-agent chain (more detail, higher cost).</li>
+            </ol>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 
 def _iframe_theme_css() -> str:
     """Return a CSS block that mirrors the main-app glassmorphism variables for use
@@ -1539,8 +1717,8 @@ def _iframe_theme_css() -> str:
             --top-edge-highlight: rgba(255,255,255,0.15);
             --accent-blue: #38a8f5;
             --text-primary: #f0f6ff;
-            --text-secondary: #94a3b8;
-            --text-muted: #4a5568;
+            --text-secondary: #b8cce0;
+            --text-muted: #7a90aa;
             --score-green: #4ade80;
             --score-yellow: #fbbf24;
             --score-red: #fb7185;
@@ -1906,24 +2084,21 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         }}
         #{container_id} .gauge-scroller {{
           width: 100%;
-          overflow-x: auto;
-          overflow-y: visible;
+          overflow: visible;
           padding-bottom: 10px;
-          scrollbar-width: thin;
-          scrollbar-color: var(--glass-border) transparent;
         }}
         #{container_id} .gauge-grid {{
           display: flex;
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
           gap: 18px;
           align-items: stretch;
-          min-width: max-content;
+          justify-content: center;
         }}
         #{container_id} .gauge-card {{
           position: relative;
-          width: 220px;
-          min-width: 220px;
-          max-width: 220px;
+          flex: 1 1 200px;
+          min-width: 200px;
+          max-width: 260px;
           min-height: 314px;
           background: var(--glass-bg);
           border: 1px solid var(--glass-border);
@@ -1955,27 +2130,13 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           width: 100%;
           height: 188px;
         }}
-        #{container_id} .gauge-score {{
-          text-align: center;
-          color: var(--text-primary);
-          font-size: 2.2rem;
-          font-weight: 900;
-          line-height: 1;
-          min-height: 36px;
-          margin-top: -8px;
-        }}
         #{container_id} .gauge-footer {{
-          text-align: center;
-          color: var(--text-muted);
-          font-size: 0.92rem;
-          font-weight: 700;
-          margin-top: 4px;
-          min-height: 28px;
+          display: none;
           opacity: 0;
           transition: opacity 260ms ease;
         }}
         #{container_id}.show-labels .gauge-footer {{
-          opacity: 1;
+          display: none;
         }}
         #{container_id} .gauge-details {{
           margin-top: 10px;
@@ -2020,24 +2181,10 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           background: transparent;
           border-radius: 999px;
         }}
-        @media (max-width: 980px) {{
-          #{container_id} .gauge-scroller {{
-            overflow: visible;
-          }}
-          #{container_id} .gauge-grid {{
-            min-width: 0;
-            flex-wrap: wrap;
-          }}
+        @media (max-width: 520px) {{
           #{container_id} .gauge-card {{
-            width: calc(50% - 9px);
-            min-width: 260px;
+            flex-basis: 100%;
             max-width: none;
-          }}
-        }}
-        @media (max-width: 640px) {{
-          #{container_id} .gauge-card {{
-            width: 100%;
-            min-width: 0;
           }}
         }}
       </style>
@@ -2051,7 +2198,6 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       const animationKey = "codelens-score-overview-" + {json.dumps(json.dumps(payload, sort_keys=True))};
       let hasAnimated = sessionStorage.getItem(animationKey) === 'done';
       const plotEls = [];
-      const scoreEls = [];
 
       function setFrameHeight(height) {{
         try {{
@@ -2078,8 +2224,9 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           mode: 'gauge+number',
           value: value,
           number: {{
-            font: {{ size: 34, color: metric.muted ? txtMuted : metric.color, family: cs.getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif' }},
-            valueformat: '.0f'
+            font: {{ size: 22, color: metric.muted ? txtMuted : metric.color, family: cs.getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif' }},
+            valueformat: '.0f',
+            suffix: '/100'
           }},
           gauge: {{
             axis: {{ range: [0, 100], tickwidth: 0, tickcolor: 'rgba(0,0,0,0)', tickfont: {{color: txtMuted}} }},
@@ -2115,9 +2262,6 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
 
       function renderGaugeAt(index, value) {{
         Plotly.react(plotEls[index], buildGauge(metrics[index], value), plotLayout(), plotConfig());
-        if (scoreEls[index]) {{
-          scoreEls[index].textContent = String(value);
-        }}
       }}
 
       function revealLabels() {{
@@ -2160,8 +2304,6 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         card.innerHTML = `
           <div class="gauge-title">${{metric.title}}</div>
           <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
-          <div class="gauge-score">${{hasAnimated ? metric.score : 0}}</div>
-          <div class="gauge-footer">/100</div>
           <div class="gauge-details">
             <div class="hover-label">${{metric.title}} Analysis</div>
             <ul class="hover-copy">${{metric.detail_html}}</ul>
@@ -2169,9 +2311,7 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         `;
         grid.appendChild(card);
         const plotEl = card.querySelector('.gauge-plot');
-        const scoreEl = card.querySelector('.gauge-score');
         plotEls.push(plotEl);
-        scoreEls.push(scoreEl);
         card.addEventListener('mouseenter', refreshFrameHeight);
         card.addEventListener('mouseleave', refreshFrameHeight);
         Plotly.newPlot(plotEl, buildGauge(metric, hasAnimated ? metric.score : 0), plotLayout(), plotConfig()).then(refreshFrameHeight);
@@ -2186,11 +2326,6 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       }}, {{ threshold: 0.3 }});
       observer.observe(root);
       if (hasAnimated) {{
-        metrics.forEach((metric, idx) => {{
-          if (scoreEls[idx]) {{
-            scoreEls[idx].textContent = String(metric.score);
-          }}
-        }});
         revealLabels();
       }}
       refreshFrameHeight();
@@ -2351,7 +2486,11 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
           font-weight: 700;
           text-transform: lowercase;
         }}
-        @media (max-width: 860px) {{
+        #{container_id} .stack-card {{
+          min-width: 0;
+          word-break: break-word;
+        }}
+        @media (max-width: 700px) {{
           #{container_id} .stack-shell {{
             flex-direction: column;
           }}
@@ -2963,6 +3102,863 @@ def render_ai_usage(result: dict[str, Any]) -> None:
     components.html(html_block, height=700, scrolling=False)
 
 
+def render_commit_timeline(result: dict[str, Any]) -> None:
+    commits_raw = result.get("analysis_data", {}).get("commits", [])
+    if not commits_raw:
+        st.info("No commit data available for timeline.")
+        return
+
+    commits = sorted(
+        [c for c in commits_raw if c.get("timestamp")],
+        key=lambda c: c["timestamp"],
+    )
+    if not commits:
+        return
+
+    theme_css = _iframe_theme_css()
+    theme = st.session_state.get("theme", "light")
+    is_dark = theme == "dark"
+
+    repo_url = (st.session_state.get("last_github_url") or "").rstrip("/")
+    # Normalise GitHub URL so we can build commit links
+    # e.g. https://github.com/owner/repo  →  keep as-is
+    repo_url_clean = repo_url if repo_url.startswith("https://github.com/") else ""
+
+    max_diff = max((c.get("total_diff_size", 1) for c in commits), default=1) or 1
+    commit_data = []
+    cumulative = 0
+    for c in commits:
+        added = c.get("lines_added", 0)
+        deleted = c.get("lines_deleted", 0)
+        diff = c.get("total_diff_size", 0)
+        cumulative += added - deleted
+        full_msg = c.get("message", "") or ""
+        first_line = full_msg.split("\n")[0]
+        msg = first_line[:80]
+        msg_line_count = len([ln for ln in full_msg.split("\n") if ln.strip()]) or (1 if full_msg.strip() else 0)
+        files_n = int(c.get("files_changed", 0) or 0)
+        churn = added + deleted
+        subject_len = len(first_line)
+        if subject_len >= 40:
+            msg_quality = "Detailed"
+            msg_quality_color = "var(--score-green)"
+        elif subject_len >= 20:
+            msg_quality = "Clear"
+            msg_quality_color = "var(--score-yellow, #f59e0b)"
+        else:
+            msg_quality = "Brief"
+            msg_quality_color = "var(--text-muted)"
+        ts = c.get("timestamp", "")
+        month_key = ts[:7] if len(ts) >= 7 else ""
+        commit_data.append({
+            "sha": c.get("sha", "")[:7],
+            "sha_full": c.get("sha", ""),
+            "message": msg,
+            "msg_snippet": first_line[:16] + ("…" if len(first_line) > 16 else ""),
+            "author": c.get("author_name", "Unknown"),
+            "timestamp": ts,
+            "date_display": ts[:10],
+            "month_key": month_key,
+            "files_changed": files_n,
+            "lines_added": added,
+            "lines_deleted": deleted,
+            "total_diff": diff,
+            "net_lines": added - deleted,
+            "churn": churn,
+            "subject_chars": subject_len,
+            "body_line_count": msg_line_count,
+            "cumulative_loc": max(cumulative, 0),
+            "size_ratio": min(diff / max_diff, 1.0),
+            "msg_quality": msg_quality,
+            "msg_quality_color": msg_quality_color,
+        })
+
+    n_commits = len(commit_data)
+    rank_by_index = {
+        idx: r + 1
+        for r, idx in enumerate(
+            sorted(range(n_commits), key=lambda i: commit_data[i]["total_diff"], reverse=True)
+        )
+    }
+    for i, d in enumerate(commit_data):
+        d["size_rank"] = rank_by_index[i]
+
+    max_cum = max((d["cumulative_loc"] for d in commit_data), default=1) or 1
+
+    # --- Summary stats ---
+    def _fmt_month(ts: str) -> str:
+        try:
+            dt = datetime.strptime(ts[:7], "%Y-%m")
+            return dt.strftime("%b %Y")
+        except Exception:
+            return ts[:7]
+
+    first_ts = commit_data[0]["timestamp"][:10] if commit_data else ""
+    last_ts = commit_data[-1]["timestamp"][:10] if commit_data else ""
+    avg_per_week: float | None = None
+    if first_ts and last_ts and first_ts != last_ts:
+        try:
+            first_dt = datetime.fromisoformat(first_ts)
+            last_dt = datetime.fromisoformat(last_ts)
+            span_days = max(1, (last_dt - first_dt).days)
+            avg_per_week = round(n_commits / max(1, span_days / 7), 1)
+        except Exception:
+            pass
+
+    month_counts: dict[str, int] = {}
+    for d in commit_data:
+        mk = d["month_key"]
+        if mk:
+            month_counts[mk] = month_counts.get(mk, 0) + 1
+    most_active_month = max(month_counts, key=lambda k: month_counts[k]) if month_counts else None
+
+    date_range_str = ""
+    if first_ts and last_ts:
+        if first_ts[:7] == last_ts[:7]:
+            date_range_str = _fmt_month(first_ts)
+        else:
+            date_range_str = f"{_fmt_month(first_ts)} – {_fmt_month(last_ts)}"
+
+    total_net_loc = commit_data[-1]["cumulative_loc"] if commit_data else 0
+
+    summary_pills_parts = [f'<div class="tl-pill">{n_commits} commits</div>']
+    if date_range_str:
+        summary_pills_parts.append(f'<div class="tl-pill">{html.escape(date_range_str)}</div>')
+    if avg_per_week is not None:
+        summary_pills_parts.append(f'<div class="tl-pill">~{avg_per_week}/week avg</div>')
+    if most_active_month:
+        summary_pills_parts.append(
+            f'<div class="tl-pill tl-pill-accent">Peak: {html.escape(_fmt_month(most_active_month))}</div>'
+        )
+    if total_net_loc > 0:
+        summary_pills_parts.append(f'<div class="tl-pill">+{total_net_loc:,} net lines</div>')
+    summary_pills = "\n".join(summary_pills_parts)
+
+    dot_green = "#4ade80" if is_dark else "#22c55e"
+    dot_yellow = "#fbbf24" if is_dark else "#f59e0b"
+    dot_red = "#fb7185" if is_dark else "#ef4444"
+    sparkline_color = "#38a8f5"
+
+    container_id = f"commit-tl-{uuid.uuid4().hex}"
+    html_block = f"""
+    <div id="{container_id}" class="commit-tl-root">
+      <style>
+        {theme_css}
+        #{container_id} {{
+          background: transparent;
+          font-family: var(--font-sans);
+          color: var(--text-primary);
+          position: relative;
+        }}
+        #{container_id} .tl-header {{
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }}
+        #{container_id} .tl-title {{
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }}
+        #{container_id} .tl-subtitle {{
+          font-size: 12px;
+          color: var(--text-muted);
+        }}
+        #{container_id} .tl-summary {{
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 16px;
+        }}
+        #{container_id} .tl-pill {{
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 600;
+          background: var(--glass-bg-inner);
+          border: 1px solid var(--glass-border-subtle);
+          color: var(--text-secondary);
+          white-space: nowrap;
+          font-family: var(--font-mono);
+        }}
+        #{container_id} .tl-pill-accent {{
+          background: rgba(56,168,245,0.12);
+          border-color: rgba(56,168,245,0.35);
+          color: {sparkline_color};
+        }}
+        #{container_id} .tl-scroll {{
+          overflow-x: auto;
+          overflow-y: visible;
+          padding-bottom: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: var(--glass-border) transparent;
+        }}
+        #{container_id} .tl-scroll::-webkit-scrollbar {{
+          height: 6px;
+        }}
+        #{container_id} .tl-scroll::-webkit-scrollbar-thumb {{
+          background: var(--glass-border);
+          border-radius: 3px;
+        }}
+        #{container_id} .tl-scroll::-webkit-scrollbar-track {{
+          background: transparent;
+        }}
+        #{container_id} .tl-canvas {{
+          position: relative;
+          display: flex;
+          align-items: flex-end;
+          gap: 0;
+          min-width: max-content;
+          height: 270px;
+          padding: 0 24px;
+        }}
+        #{container_id} .tl-axis {{
+          position: absolute;
+          bottom: 100px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: var(--glass-border-subtle);
+          pointer-events: none;
+        }}
+        #{container_id} .tl-sparkline {{
+          position: absolute;
+          bottom: 100px;
+          left: 24px;
+          right: 24px;
+          height: 100px;
+          pointer-events: none;
+        }}
+        #{container_id} .tl-month-sep {{
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 10px;
+          min-width: 10px;
+          align-self: stretch;
+          flex-shrink: 0;
+          margin: 0 2px;
+        }}
+        #{container_id} .tl-month-line {{
+          width: 1px;
+          flex: 1;
+          margin-bottom: 100px;
+          background: var(--glass-border-subtle);
+          opacity: 0.6;
+        }}
+        #{container_id} .tl-month-label {{
+          position: absolute;
+          bottom: 80px;
+          font-size: 9px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          white-space: nowrap;
+          transform: translateX(-50%);
+          font-family: var(--font-mono);
+          opacity: 0.8;
+        }}
+        #{container_id} .tl-node {{
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 72px;
+          min-width: 72px;
+          flex-shrink: 0;
+          cursor: pointer;
+          z-index: 2;
+        }}
+        #{container_id} .tl-bar-area {{
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-end;
+          height: 100px;
+          width: 100%;
+          margin-bottom: 0;
+        }}
+        #{container_id} .tl-bar {{
+          width: 18px;
+          border-radius: 4px 4px 0 0;
+          min-height: 2px;
+          transition: all 0.18s var(--ease-swift);
+        }}
+        #{container_id} .tl-bar-add {{
+          background: var(--score-green);
+          opacity: 0.7;
+        }}
+        #{container_id} .tl-bar-del {{
+          background: var(--score-red);
+          opacity: 0.5;
+          border-radius: 0 0 4px 4px;
+        }}
+        #{container_id} .tl-dot-area {{
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 30px;
+        }}
+        #{container_id} .tl-dot {{
+          border-radius: 50%;
+          border: 2px solid var(--glass-border);
+          transition: transform 0.15s var(--ease-swift), box-shadow 0.15s var(--ease-swift);
+          z-index: 3;
+        }}
+        #{container_id} .tl-node:hover .tl-dot {{
+          transform: scale(1.5);
+          box-shadow: 0 0 12px var(--card-glow);
+          border-color: var(--accent-blue);
+        }}
+        #{container_id} .tl-node:hover .tl-bar {{
+          opacity: 1;
+        }}
+        #{container_id} .tl-date {{
+          font-size: 10px;
+          color: var(--text-muted);
+          margin-top: 5px;
+          white-space: nowrap;
+          text-align: center;
+          font-family: var(--font-mono);
+        }}
+        #{container_id} .tl-msg-preview {{
+          font-size: 9px;
+          color: var(--text-secondary);
+          margin-top: 3px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 70px;
+          text-align: center;
+          font-style: italic;
+          opacity: 0.7;
+          transition: opacity 0.15s;
+        }}
+        #{container_id} .tl-node:hover .tl-msg-preview {{
+          opacity: 1;
+          color: var(--text-primary);
+        }}
+        .tl-floating-tip {{
+          display: none;
+          position: fixed;
+          width: 300px;
+          background: var(--glass-bg);
+          backdrop-filter: var(--glass-blur);
+          -webkit-backdrop-filter: var(--glass-blur);
+          border: 1px solid var(--glass-border);
+          border-top: 2px solid var(--top-edge-highlight);
+          border-radius: var(--glass-radius-sm);
+          box-shadow: var(--glass-shadow), 0 4px 32px var(--card-glow);
+          padding: 13px 15px;
+          z-index: 99999;
+          pointer-events: auto;
+          font-family: var(--font-sans);
+        }}
+        .tl-floating-tip.tl-tip-on {{
+          display: block;
+          animation: tl-tipIn 0.14s var(--ease-swift) both;
+        }}
+        @keyframes tl-tipIn {{
+          from {{ opacity: 0; transform: translateY(5px); }}
+          to   {{ opacity: 1; transform: translateY(0); }}
+        }}
+        #{container_id} .tl-node.tl-kb-focus .tl-dot {{
+          transform: scale(1.5);
+          box-shadow: 0 0 12px var(--card-glow);
+          border-color: var(--accent-blue);
+        }}
+        .tl-floating-tip .tl-tt-header {{
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 4px;
+        }}
+        .tl-floating-tip .tl-tt-sha {{
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--accent-blue);
+          font-weight: 700;
+        }}
+        .tl-floating-tip .tl-tt-date {{
+          font-size: 10px;
+          color: var(--text-muted);
+          font-family: var(--font-mono);
+        }}
+        .tl-floating-tip .tl-tt-msg {{
+          font-size: 13px;
+          color: var(--text-primary);
+          font-weight: 600;
+          margin-top: 2px;
+          line-height: 1.4;
+          word-break: break-word;
+        }}
+        .tl-floating-tip .tl-tt-author {{
+          font-size: 11px;
+          color: var(--text-muted);
+          margin-top: 4px;
+        }}
+        .tl-floating-tip .tl-tt-pills {{
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
+        }}
+        .tl-floating-tip .tl-tt-pill {{
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: var(--glass-bg-inner);
+          border: 1px solid var(--glass-border-subtle);
+          font-family: var(--font-mono);
+          font-size: 11px;
+          white-space: nowrap;
+        }}
+        .tl-floating-tip .tl-tt-stats {{
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px 12px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--glass-border-subtle);
+          font-size: 11px;
+        }}
+        .tl-floating-tip .tl-stat {{
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }}
+        .tl-floating-tip .tl-stat-k {{
+          color: var(--text-muted);
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 600;
+        }}
+        .tl-floating-tip .tl-stat-v {{
+          font-family: var(--font-mono);
+          color: var(--text-primary);
+          font-weight: 600;
+          font-size: 12px;
+        }}
+        .tl-floating-tip .tl-tt-ghlinks {{
+          display: flex;
+          gap: 8px;
+          margin-top: 10px;
+          padding-top: 9px;
+          border-top: 1px solid var(--glass-border-subtle);
+        }}
+        .tl-floating-tip .tl-tt-ghlink {{
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          flex: 1;
+          justify-content: center;
+          padding: 5px 8px;
+          border-radius: 7px;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--accent-blue);
+          background: rgba(56, 168, 245, 0.10);
+          border: 1px solid rgba(56, 168, 245, 0.22);
+          text-decoration: none;
+          transition: background 120ms ease, border-color 120ms ease;
+        }}
+        .tl-floating-tip .tl-tt-ghlink:hover {{
+          background: rgba(56, 168, 245, 0.20);
+          border-color: rgba(56, 168, 245, 0.45);
+        }}
+        #{container_id} .tl-legend {{
+          display: flex;
+          gap: 16px;
+          margin-top: 12px;
+          flex-wrap: wrap;
+          align-items: center;
+        }}
+        #{container_id} .tl-legend-item {{
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          color: var(--text-muted);
+        }}
+        #{container_id} .tl-legend-dot {{
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }}
+        #{container_id} .tl-legend-bar {{
+          width: 8px;
+          height: 12px;
+          border-radius: 2px 2px 0 0;
+          flex-shrink: 0;
+        }}
+        #{container_id} .tl-legend-line {{
+          width: 16px;
+          height: 2px;
+          border-radius: 1px;
+          flex-shrink: 0;
+        }}
+      </style>
+
+      <div class="tl-header">
+        <div class="tl-title">Commit Timeline</div>
+        <div class="tl-subtitle">hover a commit &middot; ← → to navigate</div>
+      </div>
+
+      <div class="tl-summary">
+        {summary_pills}
+      </div>
+
+      <div class="tl-scroll">
+        <div class="tl-canvas" id="{container_id}-canvas">
+          <div class="tl-axis"></div>
+          <svg class="tl-sparkline" id="{container_id}-spark" preserveAspectRatio="none"></svg>
+    """
+
+    # Build tooltip HTML strings separately (stored as JS array, rendered in a fixed overlay)
+    tooltip_htmls: list[str] = []
+    prev_month = None
+    for i, d in enumerate(commit_data):
+        # Insert month separator when the month changes (skip before the very first commit)
+        if d["month_key"] and d["month_key"] != prev_month:
+            if prev_month is not None:
+                try:
+                    sep_dt = datetime.strptime(d["month_key"], "%Y-%m")
+                    sep_label = sep_dt.strftime("%b '%y")
+                except Exception:
+                    sep_label = d["month_key"]
+                html_block += f"""
+          <div class="tl-month-sep">
+            <div class="tl-month-line"></div>
+            <div class="tl-month-label">{html.escape(sep_label)}</div>
+          </div>"""
+            prev_month = d["month_key"]
+
+        ratio = d["size_ratio"]
+        r = max(6, min(14, 6 + ratio * 8))
+        if ratio < 0.25:
+            dot_color = dot_green
+            scope_label = "Focused"
+        elif ratio < 0.6:
+            dot_color = dot_yellow
+            scope_label = "Significant"
+        else:
+            dot_color = dot_red
+            scope_label = "Major"
+
+        bar_max_h = 80
+        add_h = max(1, min(bar_max_h, int((d["lines_added"] / max_diff) * bar_max_h)))
+        del_h = max(0, min(20, int((d["lines_deleted"] / max_diff) * 20)))
+        safe_msg = html.escape(d["message"])
+        safe_snippet = html.escape(d["msg_snippet"])
+
+        net = d["net_lines"]
+        net_disp = f"+{net:,}" if net > 0 else f"{net:,}"
+        net_color = "var(--score-green)" if net > 0 else ("var(--score-red)" if net < 0 else "var(--text-muted)")
+        files_label = f'{d["files_changed"]} file{"s" if d["files_changed"] != 1 else ""}'
+
+        # Build tooltip HTML for this node (will be injected via JS)
+        sha_full = d.get("sha_full", "")
+        commit_link = f'{repo_url_clean}/commit/{sha_full}' if repo_url_clean and sha_full else ""
+        archive_link = f'{repo_url_clean}/archive/{sha_full}.zip' if repo_url_clean and sha_full else ""
+        gh_links_html = ""
+        if commit_link:
+            gh_links_html = (
+                f'<div class="tl-tt-ghlinks">'
+                f'<a class="tl-tt-ghlink" href="{html.escape(commit_link)}" target="_blank" rel="noopener">&#128279; View commit</a>'
+                f'<a class="tl-tt-ghlink" href="{html.escape(archive_link)}" target="_blank" rel="noopener">&#8595; Download</a>'
+                f'</div>'
+            )
+        tip_html = (
+            f'<div class="tl-tt-header">'
+            f'<div class="tl-tt-sha">{html.escape(d["sha"])}</div>'
+            f'<div class="tl-tt-date">{html.escape(d["timestamp"][:10])}</div>'
+            f'</div>'
+            f'<div class="tl-tt-msg">{safe_msg}</div>'
+            f'<div class="tl-tt-author">{html.escape(d["author"])}</div>'
+            f'<div class="tl-tt-pills">'
+            f'<span class="tl-tt-pill" style="color:var(--score-green);">+{d["lines_added"]:,} added</span>'
+            f'<span class="tl-tt-pill" style="color:var(--score-red);">−{d["lines_deleted"]:,} removed</span>'
+            f'<span class="tl-tt-pill">{files_label}</span>'
+            f'</div>'
+            f'<div class="tl-tt-stats">'
+            f'<div class="tl-stat"><span class="tl-stat-k">Net impact</span><span class="tl-stat-v" style="color:{net_color};">{net_disp} lines</span></div>'
+            f'<div class="tl-stat"><span class="tl-stat-k">Scope</span><span class="tl-stat-v" style="color:{dot_color};">{scope_label}</span></div>'
+            f'<div class="tl-stat"><span class="tl-stat-k">Impact rank</span><span class="tl-stat-v">#{d["size_rank"]} of {n_commits}</span></div>'
+            f'<div class="tl-stat"><span class="tl-stat-k">Running total</span><span class="tl-stat-v">{d["cumulative_loc"]:,} LoC</span></div>'
+            f'<div class="tl-stat"><span class="tl-stat-k">Msg quality</span><span class="tl-stat-v" style="color:{d["msg_quality_color"]};">{d["msg_quality"]}</span></div>'
+            f'<div class="tl-stat"><span class="tl-stat-k">Description</span><span class="tl-stat-v">{d["body_line_count"]} line{"s" if d["body_line_count"] != 1 else ""}</span></div>'
+            f'</div>'
+            f'{gh_links_html}'
+        )
+        tooltip_htmls.append(tip_html)
+
+        html_block += f"""
+          <div class="tl-node" data-idx="{i}" data-month="{html.escape(d['month_key'])}">
+            <div class="tl-bar-area">
+              <div class="tl-bar tl-bar-add" style="height:{add_h}px;"></div>
+              <div class="tl-bar tl-bar-del" style="height:{del_h}px;"></div>
+            </div>
+            <div class="tl-dot-area">
+              <div class="tl-dot" style="width:{r*2}px; height:{r*2}px; background:{dot_color};"></div>
+            </div>
+            <div class="tl-date">{html.escape(d["date_display"])}</div>
+            <div class="tl-msg-preview" title="{safe_msg}">{safe_snippet}</div>
+          </div>
+        """
+
+    sparkline_pts: list[tuple[float, float]] = []
+    n = len(commit_data)
+    for i, d in enumerate(commit_data):
+        x_pct = (i / max(n - 1, 1)) * 100
+        y_pct = 100 - (d["cumulative_loc"] / max_cum) * 90
+        sparkline_pts.append((x_pct, y_pct))
+
+    sparkline_pts_json = json.dumps(sparkline_pts)
+    tooltip_data_json = json.dumps(tooltip_htmls)
+
+    html_block += f"""
+        </div>
+      </div>
+
+      <!-- Fixed-position tooltip overlay — lives outside the scroll so it never clips -->
+      <div class="tl-floating-tip" id="{container_id}-tip"></div>
+
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; position:relative;">
+        <div class="tl-legend">
+          <div class="tl-legend-item"><div class="tl-legend-dot" style="background:{dot_green};"></div>Focused change</div>
+          <div class="tl-legend-item"><div class="tl-legend-dot" style="background:{dot_yellow};"></div>Significant commit</div>
+          <div class="tl-legend-item"><div class="tl-legend-dot" style="background:{dot_red};"></div>Major overhaul</div>
+          <div class="tl-legend-item"><div class="tl-legend-bar" style="background:var(--score-green); opacity:0.7;"></div>Lines added</div>
+          <div class="tl-legend-item"><div class="tl-legend-bar" style="background:var(--score-red); opacity:0.5; border-radius:0 0 2px 2px;"></div>Lines removed</div>
+          <div class="tl-legend-item"><div class="tl-legend-line" style="background:{sparkline_color}; opacity:0.7;"></div>Cumulative LoC</div>
+        </div>
+        <button id="{container_id}-info-btn" title="Graph element guide" style="
+          width:26px; height:26px; border-radius:50%;
+          border:1px solid var(--glass-border);
+          background:var(--glass-bg);
+          color:var(--text-muted);
+          font-size:13px; font-weight:700; line-height:1;
+          cursor:pointer; flex-shrink:0;
+          display:flex; align-items:center; justify-content:center;
+          transition:background 120ms ease, color 120ms ease;
+        ">i</button>
+      </div>
+      <!-- Info panel (hidden by default) -->
+      <div id="{container_id}-info-panel" style="
+        display:none;
+        margin-top:10px;
+        padding:13px 15px;
+        border-radius:12px;
+        background:var(--glass-bg);
+        border:1px solid var(--glass-border);
+        font-size:12px;
+        line-height:1.6;
+        color:var(--text-secondary);
+      ">
+        <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom:8px;">Graph element guide</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">
+          <div><span style="color:{dot_green}; font-weight:700;">&#11044;</span> Focused — small diff (&lt;25% of max)</div>
+          <div><span style="color:{dot_yellow}; font-weight:700;">&#11044;</span> Significant — medium diff (25–60%)</div>
+          <div><span style="color:{dot_red}; font-weight:700;">&#11044;</span> Major — large diff (&gt;60% of max)</div>
+          <div>Dot size scales with total diff volume</div>
+          <div><span style="color:var(--score-green); font-weight:700;">&#9646;</span> Green bar — lines added</div>
+          <div><span style="color:var(--score-red); font-weight:700;">&#9646;</span> Red bar — lines deleted</div>
+          <div>Sparkline — cumulative net LoC growth over time</div>
+          <div>Month separators group commits chronologically</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function() {{
+        const root   = document.getElementById({json.dumps(container_id)});
+        const spark  = document.getElementById("{container_id}-spark");
+        const canvas = document.getElementById("{container_id}-canvas");
+        const tip    = document.getElementById("{container_id}-tip");
+        const tipData = {tooltip_data_json};
+
+        function setFrameHeight(h) {{
+          try {{ if (window.Streamlit && window.Streamlit.setFrameHeight) {{ window.Streamlit.setFrameHeight(h); return; }} }} catch(e) {{}}
+          try {{ window.parent.postMessage({{ type: 'streamlit:setFrameHeight', height: h }}, '*'); }} catch(e) {{}}
+        }}
+        function refreshHeight() {{
+          setFrameHeight(Math.max(430, root.scrollHeight + 16));
+        }}
+
+        // ── smooth bezier sparkline ──────────────────────────────────────────
+        function drawSparkline() {{
+          if (!spark || !canvas) return;
+          const rawPts = {sparkline_pts_json};
+          if (rawPts.length < 2) return;
+          const canvasW = canvas.scrollWidth - 48;
+          const sparkH  = 100;
+          const pts = rawPts.map(([xp, yp]) => [(xp / 100) * canvasW, (yp / 100) * sparkH]);
+          const svgNS = 'http://www.w3.org/2000/svg';
+
+          // Catmull-Rom → cubic bezier smooth path
+          function smoothD(pts) {{
+            let d = `M ${{pts[0][0]}},${{pts[0][1]}}`;
+            for (let i = 1; i < pts.length; i++) {{
+              const p0 = pts[Math.max(0, i - 2)];
+              const p1 = pts[i - 1];
+              const p2 = pts[i];
+              const p3 = pts[Math.min(pts.length - 1, i + 1)];
+              const t = 0.4;
+              const cp1x = p1[0] + (p2[0] - p0[0]) * t / 3;
+              const cp1y = p1[1] + (p2[1] - p0[1]) * t / 3;
+              const cp2x = p2[0] - (p3[0] - p1[0]) * t / 3;
+              const cp2y = p2[1] - (p3[1] - p1[1]) * t / 3;
+              d += ` C ${{cp1x}},${{cp1y}} ${{cp2x}},${{cp2y}} ${{p2[0]}},${{p2[1]}}`;
+            }}
+            return d;
+          }}
+
+          const defs = document.createElementNS(svgNS, 'defs');
+          const grad = document.createElementNS(svgNS, 'linearGradient');
+          grad.id = '{container_id}-grad';
+          grad.setAttribute('x1','0%'); grad.setAttribute('y1','0%');
+          grad.setAttribute('x2','0%'); grad.setAttribute('y2','100%');
+          const s1 = document.createElementNS(svgNS, 'stop');
+          s1.setAttribute('offset','0%');
+          s1.setAttribute('style','stop-color:{sparkline_color}; stop-opacity:0.28');
+          const s2 = document.createElementNS(svgNS, 'stop');
+          s2.setAttribute('offset','100%');
+          s2.setAttribute('style','stop-color:{sparkline_color}; stop-opacity:0.02');
+          grad.appendChild(s1); grad.appendChild(s2);
+          defs.appendChild(grad); spark.appendChild(defs);
+
+          spark.setAttribute('viewBox', `0 0 ${{canvasW}} ${{sparkH}}`);
+          spark.style.width = canvasW + 'px';
+
+          const smoothPath = smoothD(pts);
+          const lastPt = pts[pts.length - 1];
+
+          // fill area under curve
+          const fill = document.createElementNS(svgNS, 'path');
+          fill.setAttribute('d', smoothPath + ` L ${{lastPt[0]}},${{sparkH}} L ${{pts[0][0]}},${{sparkH}} Z`);
+          fill.setAttribute('fill', 'url(#{container_id}-grad)');
+          spark.appendChild(fill);
+
+          // stroke line
+          const line = document.createElementNS(svgNS, 'path');
+          line.setAttribute('d', smoothPath);
+          line.setAttribute('fill', 'none');
+          line.setAttribute('stroke', '{sparkline_color}');
+          line.setAttribute('stroke-width', '2.2');
+          line.setAttribute('stroke-linecap', 'round');
+          line.setAttribute('stroke-linejoin', 'round');
+          line.setAttribute('opacity', '0.72');
+          spark.appendChild(line);
+        }}
+        drawSparkline();
+
+        // ── fixed-position tooltip ────────────────────────────────────────────
+        const TIP_W = 300;
+        const TIP_MARGIN = 10;
+
+        function showTip(node, idx) {{
+          tip.innerHTML = tipData[idx] || '';
+          tip.classList.remove('tl-tip-on');
+          tip.style.visibility = 'hidden';
+          tip.style.display = 'block';
+          void tip.offsetHeight; // force layout for measurement
+
+          const rect  = node.getBoundingClientRect();
+          const tipH  = tip.offsetHeight;
+          const viewW = window.innerWidth;
+          const viewH = window.innerHeight;
+
+          let left = rect.left + rect.width / 2 - TIP_W / 2;
+          left = Math.max(TIP_MARGIN, Math.min(left, viewW - TIP_W - TIP_MARGIN));
+
+          let top = rect.bottom + 10; // default: below the dot
+          if (top + tipH + TIP_MARGIN > viewH) {{ top = rect.top - tipH - 10; }} // flip above if no room below
+          top = Math.max(TIP_MARGIN, Math.min(top, viewH - tipH - TIP_MARGIN));
+
+          tip.style.left = left + 'px';
+          tip.style.top  = top  + 'px';
+          tip.style.visibility = 'visible';
+          tip.classList.add('tl-tip-on');
+        }}
+
+        let hideTimer = null;
+        function scheduleHide() {{
+          hideTimer = setTimeout(() => {{
+            tip.classList.remove('tl-tip-on');
+            tip.style.display = 'none';
+          }}, 220);
+        }}
+        function cancelHide() {{
+          if (hideTimer) {{ clearTimeout(hideTimer); hideTimer = null; }}
+        }}
+        function hideTip() {{
+          cancelHide();
+          tip.classList.remove('tl-tip-on');
+          tip.style.display = 'none';
+        }}
+        // Hovering the tip itself keeps it visible so links are clickable
+        tip.addEventListener('mouseenter', cancelHide);
+        tip.addEventListener('mouseleave', scheduleHide);
+
+        // ── wire up nodes ─────────────────────────────────────────────────────
+        const allNodes = Array.from(root.querySelectorAll('.tl-node'));
+        allNodes.forEach((node, i) => {{
+          node.addEventListener('mouseenter', () => {{ cancelHide(); showTip(node, i); }});
+          node.addEventListener('mouseleave', scheduleHide);
+        }});
+
+        // ── keyboard navigation ───────────────────────────────────────────────
+        let focusIdx = -1;
+        root.tabIndex = 0;
+        root.addEventListener('keydown', function(e) {{
+          if (e.key === 'ArrowRight') {{ focusIdx = Math.min(focusIdx + 1, allNodes.length - 1); }}
+          else if (e.key === 'ArrowLeft') {{ focusIdx = Math.max(focusIdx - 1, 0); }}
+          else {{ return; }}
+          e.preventDefault();
+          allNodes.forEach(n => n.classList.remove('tl-kb-focus'));
+          const node = allNodes[focusIdx];
+          if (node) {{
+            node.classList.add('tl-kb-focus');
+            node.scrollIntoView({{ behavior: 'smooth', inline: 'center', block: 'nearest' }});
+            showTip(node, focusIdx);
+          }}
+        }});
+        root.addEventListener('blur', hideTip);
+
+        // ── info button ───────────────────────────────────────────────────────
+        const infoBtn   = document.getElementById("{container_id}-info-btn");
+        const infoPanel = document.getElementById("{container_id}-info-panel");
+        if (infoBtn && infoPanel) {{
+          infoBtn.addEventListener('click', () => {{
+            const visible = infoPanel.style.display !== 'none';
+            infoPanel.style.display = visible ? 'none' : 'block';
+            infoBtn.style.color = visible ? 'var(--text-muted)' : 'var(--accent-blue)';
+            infoBtn.style.borderColor = visible ? 'var(--glass-border)' : 'var(--accent-blue)';
+            refreshHeight();
+          }});
+        }}
+
+        refreshHeight();
+        window.addEventListener('load', refreshHeight);
+        window.addEventListener('resize', () => {{ hideTip(); refreshHeight(); }});
+        new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
+      }})();
+    </script>
+    """
+    components.html(html_block, height=460, scrolling=False)
+
+
 def render_code_issues(result: dict[str, Any]) -> None:
     reports = result.get("reports", {})
     quality_report = reports.get("code_quality", {})
@@ -3209,81 +4205,48 @@ def render_results(result: dict[str, Any]) -> None:
     verdict = result["verdict"]
     has_resume = result.get("resume_data") is not None
     has_jd = result.get("job_description") is not None
-    active_view = st.session_state.get("active_view", "overview")
 
-    if active_view == "overview":
-        st.markdown(
-            """
-            <div style="margin: 6px 0 14px 0;">
-                <div class="small-label">Results</div>
-                <div style="font-size:19px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Score overview</div>
-                <div class="muted" style="margin-top:6px;">Hover a gauge for detail bullets.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        render_gauge_results_row(result)
+    st.markdown(
+        """
+        <div style="margin: 6px 0 14px 0;">
+            <div class="small-label">Results</div>
+            <div style="font-size:19px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Score overview</div>
+            <div class="muted" style="margin-top:6px;">Hover a gauge for detail bullets.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_gauge_results_row(result)
 
-        st.markdown('<div class="small-label" style="margin:18px 0 10px 0;">Analysis sections</div>', unsafe_allow_html=True)
-        section_defs: list[tuple[str, str]] = [
-            ("Skill Map", "skill_map"),
-            ("AI Usage", "ai_usage"),
-            ("Code Issues", "code_issues"),
-        ]
-        if has_resume:
-            section_defs.append(("Resume", "resume"))
-        if has_jd:
-            section_defs.append(("Job Fit", "job_fit"))
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    render_skill_map(result)
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    render_ai_usage(result)
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    render_code_issues(result)
+    if has_resume:
+        st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+        render_resume_panel(result)
+    if has_jd:
+        st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+        render_job_fit_panel(result)
 
-        st.session_state.setdefault("overview_section", section_defs[0][1])
-        if st.session_state["overview_section"] not in {k for _, k in section_defs}:
-            st.session_state["overview_section"] = section_defs[0][1]
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    render_strengths_and_concerns(result)
 
-        pill_cols = st.columns(len(section_defs))
-        for i, (label, key) in enumerate(section_defs):
-            with pill_cols[i]:
-                active = st.session_state["overview_section"] == key
-                if st.button(
-                    label,
-                    key=f"ovsec-{key}",
-                    use_container_width=True,
-                    type="primary" if active else "secondary",
-                ):
-                    st.session_state["overview_section"] = key
-                    st.rerun()
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="margin: 0 0 10px 0;">
+            <div class="small-label">Graphs</div>
+            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Development Activity</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    render_commit_timeline(result)
 
-        sec = st.session_state["overview_section"]
-        if sec == "skill_map":
-            render_skill_map(result)
-        elif sec == "ai_usage":
-            render_ai_usage(result)
-        elif sec == "code_issues":
-            render_code_issues(result)
-        elif sec == "resume":
-            if has_resume:
-                render_resume_panel(result)
-            else:
-                st.info("Resume sections appear when a resume file is uploaded.")
-        elif sec == "job_fit":
-            if has_jd:
-                render_job_fit_panel(result)
-            else:
-                st.info("Add a job description during analysis to unlock Job Fit.")
-
-        render_strengths_and_concerns(result)
-    elif active_view == "skill_map":
-        st.markdown("### Skill Map")
-        render_skill_map(result)
-    elif active_view == "ai_usage":
-        st.markdown("### AI Usage")
-        render_ai_usage(result)
-    elif active_view == "job_fit":
-        st.markdown("### Job Fit")
-        if has_jd:
-            render_job_fit_panel(result)
-        else:
-            st.info("Add a job description during analysis to unlock the Job Fit view.")
-
+    st.markdown('<div class="sidebar-divider" style="margin:20px 0;"></div>', unsafe_allow_html=True)
     render_recommendation_card(verdict)
 
 
@@ -3384,9 +4347,12 @@ def render_analyze_tab() -> None:
             st.markdown(
                 f"""
                 <div class="cl-glass-panel cl-animate-{rid}" style="padding:28px 28px 20px 28px; animation: cl-fadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;">
-                    <div class="cl-wordmark" style="font-size:28px;"><span>Code</span><span>Lens</span></div>
+                    <div class="cl-brand-title-row">
+                        <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=32)}</div>
+                        <div class="cl-wordmark" style="font-size:28px;"><span>Code</span><span>Lens</span></div>
+                    </div>
                     <p style="color:var(--text-secondary); font-size:15px; margin:10px 0 0 0; line-height:1.5;">
-                        Intelligent code review for technical hiring.
+                        {html.escape(BRAND_TAGLINE)}
                     </p>
                 </div>
                 <div style="height:12px"></div>
@@ -3600,11 +4566,17 @@ def render_mcp_tab() -> None:
 
 def render_logged_out_home() -> None:
     st.markdown(
-        """
+        f"""
         <div style="min-height:68vh; display:flex; align-items:center; justify-content:center;">
             <div style="text-align:center; max-width:560px; padding:24px;">
-                <div class="logo-mark" style="font-size:3rem; white-space:normal;">CodeLens</div>
-                <div style="color:var(--text-secondary); margin-top:14px; font-size:1.05rem;">
+                <div class="cl-brand-title-row" style="justify-content:center;">
+                    <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=44)}</div>
+                    <div class="cl-wordmark" style="font-size:2.5rem;"><span>Code</span><span>Lens</span></div>
+                </div>
+                <div style="color:var(--text-secondary); margin-top:12px; font-size:1.02rem; line-height:1.5;">
+                    {html.escape(BRAND_TAGLINE)}
+                </div>
+                <div style="color:var(--text-muted); margin-top:14px; font-size:0.98rem; line-height:1.55;">
                     Sign in with GitHub to unlock analysis history, repository scoring, AI usage insights, and the full CodeLens dashboard.
                 </div>
             </div>
