@@ -5643,6 +5643,10 @@ def render_chat_section(result: dict[str, Any]) -> None:
     partial_skills = [s for s, v in skill_map.items() if str(v).lower() == "partial"]
     missing_skills = [s for s, v in skill_map.items() if str(v).lower() not in ("confirmed", "partial")]
 
+    lang_breakdown = repo_meta.get("language_breakdown") or {}
+    commit_patterns = analysis_data.get("commit_patterns") or {}
+    time_dist = commit_patterns.get("commit_time_distribution") or {}
+
     resume_data = result.get("resume_data") or {}
     resume_section = ""
     if resume_data:
@@ -5663,7 +5667,20 @@ Job description context:
 - Job fit score: {verdict.get("job_fit_score", "N/A")} / 100
 """
 
-    system_prompt = f"""You are CodeLens AI, an expert code review assistant. You have just analysed the repository "{repo_name}" and have full access to the results. Answer the recruiter or developer's questions concisely and accurately, grounded only in the data below. Do not speculate beyond what the analysis shows.
+    chart_data_block = f"""
+Chartable data (use only these exact values when generating charts):
+- Scores: overall_quality={quality_score}, ai_usage={ai_score}, commit_health={commit_score}{f", job_fit={verdict.get('job_fit_score')}" if jd_data else ""}
+- Skill counts: confirmed={len(confirmed_skills)}, partial={len(partial_skills)}, not_found={len(missing_skills)}
+- Confirmed skills list: {confirmed_skills[:12]}
+- Partial skills list: {partial_skills[:12]}
+- Missing skills list: {missing_skills[:12]}
+- Language breakdown (%): {dict(list(lang_breakdown.items())[:10])}
+- Commit time distribution: {time_dist}
+- Commits per day: {commit_patterns.get("commits_per_day", "N/A")}
+- Avg diff size: {commit_patterns.get("avg_diff_size", "N/A")}
+"""
+
+    system_prompt = f"""You are CodeLens AI, an expert code review assistant. You have just analysed the repository "{repo_name}" and have full access to the results. Answer questions concisely and accurately, grounded only in the data below.
 
 Repository: {repo_name}
 Primary language: {lang} | Stars: {stars} | Contributors: {contributors}
@@ -5681,8 +5698,18 @@ Skills not found: {", ".join(missing_skills) or "None"}
 
 Strengths: {"; ".join(strengths[:5]) or "None noted"}
 Concerns: {"; ".join(concerns[:5]) or "None noted"}
-{resume_section}{jd_section}
-When you don't know something, say so clearly. Keep answers short unless the user asks for detail. Never fabricate commit details or file contents not mentioned above."""
+{resume_section}{jd_section}{chart_data_block}
+## Chart generation
+When the user asks for a chart, graph, or visualization, output a [CHART] block containing a valid Plotly figure as JSON (keys: "data" array and "layout" object), then a short text explanation after it. Use only data from the chartable data above. Always set paper_bgcolor and plot_bgcolor to "rgba(0,0,0,0)" for transparent backgrounds. Font color should be "#e2e8f0" for labels.
+
+Example bar chart:
+[CHART]{{"data":[{{"type":"bar","x":["Confirmed","Partial","Not Found"],"y":[{len(confirmed_skills)},{len(partial_skills)},{len(missing_skills)}],"marker":{{"color":["#22c55e","#f59e0b","#ef4444"]}}}}],"layout":{{"title":"Skill Breakdown","paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","font":{{"color":"#e2e8f0"}}}}}}[/CHART]
+
+Example pie chart:
+[CHART]{{"data":[{{"type":"pie","labels":["Morning","Afternoon","Evening","Night"],"values":[10,8,15,3],"hole":0.4}}],"layout":{{"title":"Commit Time Distribution","paper_bgcolor":"rgba(0,0,0,0)","font":{{"color":"#e2e8f0"}}}}}}[/CHART]
+
+When NOT asked for a chart, reply in plain text only — no [CHART] blocks.
+When you don't know something, say so. Never fabricate data not listed above."""
 
     # ── Session state for chat history ─────────────────────────────────────
     chat_key = f"chat_history_{st.session_state.get('last_github_url', 'default')}"
@@ -5693,7 +5720,7 @@ When you don't know something, say so clearly. Keep answers short unless the use
     st.markdown(
         """
         <div style="margin: 0 0 14px 0;">
-            <div class="small-label">Assistant</div>
+            <div class="small-label">CodeLens Assistant</div>
             <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Ask about this repo</div>
             <div class="muted" style="margin-top:5px;">Ask anything about the analysis — code quality, AI usage, skill gaps, commit patterns, or how this candidate compares to the job.</div>
         </div>
@@ -5701,24 +5728,79 @@ When you don't know something, say so clearly. Keep answers short unless the use
         unsafe_allow_html=True,
     )
 
+    def _render_message(msg: dict) -> None:
+        """Render a single chat message, handling embedded [CHART] blocks."""
+        with st.chat_message(msg["role"]):
+            content = msg["content"]
+            # Split on [CHART]...[/CHART] blocks
+            parts = re.split(r'\[CHART\](.*?)\[/CHART\]', content, flags=re.DOTALL)
+            for i, part in enumerate(parts):
+                if i % 2 == 0:
+                    # Plain text segment
+                    if part.strip():
+                        st.markdown(part.strip())
+                else:
+                    # Chart JSON segment
+                    try:
+                        import plotly.graph_objects as go  # noqa: PLC0415
+                        # Strip markdown code fences the model may have wrapped around the JSON
+                        raw = re.sub(r'^```[a-z]*\n?', '', part.strip(), flags=re.IGNORECASE)
+                        raw = re.sub(r'\n?```$', '', raw).strip()
+                        fig_spec = json.loads(raw)
+                        # go.Figure needs data + layout as separate args, not a single dict
+                        fig = go.Figure(
+                            data=fig_spec.get("data", []),
+                            layout=fig_spec.get("layout", {}),
+                        )
+                        fig.update_layout(
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            margin=dict(l=20, r=20, t=40, b=20),
+                            font=dict(color="#e2e8f0"),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                    except Exception as _chart_err:
+                        st.markdown(f"*(Chart could not be rendered — {_chart_err})*")
+
     # ── Render existing messages ───────────────────────────────────────────
     for msg in st.session_state[chat_key]:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+        _render_message(msg)
+
+    # ── Quick-action suggestion chips ──────────────────────────────────────
+    if not st.session_state[chat_key]:
+        st.markdown(
+            '<div class="muted" style="margin-bottom:8px; font-size:12px;">Try asking:</div>',
+            unsafe_allow_html=True,
+        )
+        suggestions = [
+            "Show a skill breakdown chart",
+            "Chart the scores as a bar graph",
+            "Show language distribution",
+            "What are the biggest concerns?",
+        ]
+        if time_dist:
+            suggestions.insert(2, "Show commit time distribution")
+        cols = st.columns(len(suggestions[:4]))
+        for col, suggestion in zip(cols, suggestions[:4]):
+            with col:
+                if st.button(suggestion, key=f"{chat_key}_sug_{suggestion}", use_container_width=True):
+                    st.session_state[f"{chat_key}_prefill"] = suggestion
 
     # ── Inline input row ───────────────────────────────────────────────────
+    prefill = st.session_state.pop(f"{chat_key}_prefill", "")
     input_col, btn_col = st.columns([8, 1])
     with input_col:
         user_input = st.text_input(
             "chat_input",
-            placeholder="Ask a question about this repository…",
+            value=prefill,
+            placeholder="Ask a question or request a chart…",
             label_visibility="collapsed",
             key=f"{chat_key}_input",
         )
     with btn_col:
         send = st.button("Send", key=f"{chat_key}_send", use_container_width=True)
 
-    if send and user_input.strip():
+    if (send or prefill) and user_input.strip():
         question = user_input.strip()
         st.session_state[chat_key].append({"role": "user", "content": question})
 
@@ -5733,13 +5815,15 @@ When you don't know something, say so clearly. Keep answers short unless the use
                     model = model[len("openrouter/"):]
 
                 messages = [{"role": "system", "content": system_prompt}]
+                # Pass history excluding chart JSON to keep tokens down
                 for m in st.session_state[chat_key][-10:]:
-                    messages.append({"role": m["role"], "content": m["content"]})
+                    text_only = re.sub(r'\[CHART\].*?\[/CHART\]', '[chart was shown]', m["content"], flags=re.DOTALL)
+                    messages.append({"role": m["role"], "content": text_only})
 
                 response = client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    max_tokens=600,
+                    max_tokens=900,
                     temperature=0.4,
                 )
                 reply = response.choices[0].message.content.strip()

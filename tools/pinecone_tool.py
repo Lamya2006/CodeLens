@@ -30,10 +30,10 @@ class PineconeStore:
     INDEX_NAME = "codelens"
     DIMENSION = 1024
     MODEL_NAME = "voyage-code-3"
-    MAX_TEXT_CHARS = 16000
-    # Voyage embed API caps total tokens per request (~120k). Batch by estimated tokens, not fixed count.
-    DEFAULT_VOYAGE_MAX_BATCH_TOKENS = 100_000
-    DEFAULT_CHARS_PER_TOKEN_EST = 2.0
+    MAX_TEXT_CHARS = 4000   # ~1k–4k tokens depending on content density; keeps worst-case well under limit
+    # Voyage hard limit is 120k tokens/batch. We target 40k to leave 3× safety margin.
+    DEFAULT_VOYAGE_MAX_BATCH_TOKENS = 40_000
+    DEFAULT_CHARS_PER_TOKEN_EST = 1.0  # worst-case: 1 char = 1 token (minified/dense code)
     # Pinecone limits each upsert request size (~4MB). Large metadata["text"] × batch size can exceed it.
     DEFAULT_UPSERT_BATCH_SIZE = 16
     DEFAULT_METADATA_TEXT_CHARS = 8000
@@ -101,6 +101,7 @@ class PineconeStore:
             batch,
             model=self.MODEL_NAME,
             input_type="document",
+            truncation=True,
         )
         return list(response.embeddings)
 
@@ -110,6 +111,7 @@ class PineconeStore:
             [truncated],
             model=self.MODEL_NAME,
             input_type="document",
+            truncation=True,
         )
         return response.embeddings[0]
 
@@ -117,7 +119,7 @@ class PineconeStore:
         """Split into sub-batches under Voyage's max tokens per request (see env VOYAGE_MAX_BATCH_TOKENS)."""
         max_tokens = int(os.getenv("VOYAGE_MAX_BATCH_TOKENS", str(self.DEFAULT_VOYAGE_MAX_BATCH_TOKENS)))
         max_tokens = max(max_tokens, 1000)
-        max_items = int(os.getenv("VOYAGE_MAX_BATCH_ITEMS", "32"))
+        max_items = int(os.getenv("VOYAGE_MAX_BATCH_ITEMS", "8"))
         max_items = max(max_items, 1)
 
         vectors: list[list[float]] = []
@@ -185,6 +187,7 @@ class PineconeStore:
             [self._truncate(text)],
             model=self.MODEL_NAME,
             input_type="query",
+            truncation=True,
         ).embeddings[0]
 
         response = self.index.query(

@@ -13,3 +13,4 @@ llama-index-embeddings-voyageai
 requests
 requests-oauthlib
 pypdf
+plotly
