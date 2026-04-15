@@ -2874,11 +2874,6 @@ def render_skill_map(result: dict[str, Any]) -> None:
         <section class="status-card">
           <div class="status-heading">{html.escape(title)}</div>
           <div class="pill-area">{pills}</div>
-          <div class="card-divider"></div>
-          <div class="status-footer">
-            <div class="footer-label">In Total Number</div>
-            <div class="footer-count">{len(entries)}</div>
-          </div>
         </section>
         """
 
@@ -2961,32 +2956,70 @@ def render_skill_map(result: dict[str, Any]) -> None:
           line-height: 1.5;
           opacity: 0.72;
         }}
-        #{container_id} .card-divider {{
-          margin: 16px 0 14px;
-          border-top: 1px solid rgba(10,58,110,0.2);
-        }}
-        #{container_id} .status-footer {{
+        #{container_id} .summary-bar {{
+          margin-top: 24px;
           display: flex;
+          justify-content: space-around;
+          align-items: stretch;
+          gap: 0;
+          background: rgba(255,255,255,0.45);
+          border: 1.5px solid rgba(255,255,255,0.7);
+          border-radius: 16px;
+          box-sizing: border-box;
+          padding: 18px 10px;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          box-shadow: 0 16px 30px rgba(10,58,110,0.12);
+        }}
+        #{container_id} .summary-segment {{
+          display: flex;
+          flex: 1 1 0;
+          flex-direction: column;
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+          justify-content: center;
+          gap: 8px;
+          min-width: 0;
+          text-align: center;
         }}
-        #{container_id} .footer-label {{
+        #{container_id} .summary-segment + .summary-segment {{
+          border-left: 1px solid rgba(10,58,110,0.2);
+        }}
+        #{container_id} .summary-label {{
           color: #0a3a6e;
-          font-size: 0.8rem;
-          font-weight: 400;
-          letter-spacing: 0;
-          text-transform: none;
+          font-size: 0.76rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          opacity: 0.82;
         }}
-        #{container_id} .footer-count {{
+        #{container_id} .summary-count {{
           font-size: 2rem;
           font-weight: 900;
           line-height: 1;
-          color: #0a3a6e;
+        }}
+        #{container_id} .summary-count.confirmed {{
+          color: #22c55e;
+        }}
+        #{container_id} .summary-count.partial {{
+          color: #f59e0b;
+        }}
+        #{container_id} .summary-count.not-found {{
+          color: #ff5f5f;
         }}
         @media (max-width: 980px) {{
           #{container_id} .skill-map-grid {{
             flex-direction: column;
+          }}
+          #{container_id} .summary-bar {{
+            flex-direction: column;
+            padding: 10px 0;
+          }}
+          #{container_id} .summary-segment {{
+            padding: 12px 18px;
+          }}
+          #{container_id} .summary-segment + .summary-segment {{
+            border-left: 0;
+            border-top: 1px solid rgba(10,58,110,0.2);
           }}
         }}
       </style>
@@ -2994,6 +3027,20 @@ def render_skill_map(result: dict[str, Any]) -> None:
         {render_status_card("confirmed", "Confirmed")}
         {render_status_card("partial", "Partial")}
         {render_status_card("not_found", "Not Found")}
+      </div>
+      <div class="summary-bar">
+        <div class="summary-segment">
+          <div class="summary-label">Confirmed</div>
+          <div class="summary-count confirmed">{len(grouped["confirmed"])}</div>
+        </div>
+        <div class="summary-segment">
+          <div class="summary-label">Partial</div>
+          <div class="summary-count partial">{len(grouped["partial"])}</div>
+        </div>
+        <div class="summary-segment">
+          <div class="summary-label">Not Found</div>
+          <div class="summary-count not-found">{len(grouped["not_found"])}</div>
+        </div>
       </div>
     </div>
     <script>
@@ -3196,23 +3243,27 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           letter-spacing: 0.01em;
         }}
         #{container_id} .ai-card-row {{
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          display: flex;
+          flex-wrap: wrap;
           gap: 16px;
           margin-top: 18px;
           align-items: stretch;
+          overflow: visible;
         }}
         #{container_id} .info-card {{
+          flex: 1 1 0;
           border-radius: var(--glass-radius-sm);
           border: 1px solid var(--glass-border-subtle);
           border-top: 1px solid var(--top-edge-highlight);
           backdrop-filter: var(--glass-blur-inner);
           -webkit-backdrop-filter: var(--glass-blur-inner);
-          padding: 18px 18px 16px 18px;
-          min-height: 270px;
+          padding: 18px 18px 32px 18px;
+          height: auto;
+          min-height: max-content;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
+          overflow: visible;
         }}
         #{container_id} .info-card h4 {{
           margin: 0 0 12px 0;
@@ -3249,7 +3300,7 @@ def render_ai_usage(result: dict[str, Any]) -> None:
             text-align: center;
           }}
           #{container_id} .ai-card-row {{
-            grid-template-columns: 1fr;
+            flex-direction: column;
           }}
         }}
       </style>
@@ -3314,7 +3365,7 @@ def render_ai_usage(result: dict[str, Any]) -> None:
         }} catch (e) {{}}
       }}
       function refreshHeight() {{
-        const nextHeight = Math.max(560, root.scrollHeight + 12);
+        const nextHeight = Math.max(680, root.scrollHeight + 28);
         setFrameHeight(nextHeight);
       }}
       Plotly.newPlot("{container_id}-chart", [{{
@@ -3341,12 +3392,14 @@ def render_ai_usage(result: dict[str, Any]) -> None:
         responsive: true
       }}).then(refreshHeight);
       refreshHeight();
+      setTimeout(refreshHeight, 120);
+      setTimeout(refreshHeight, 360);
       window.addEventListener('load', refreshHeight);
       window.addEventListener('resize', refreshHeight);
       new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=700, scrolling=False)
+    components.html(html_block, height=820, scrolling=False)
 
 
 def render_commit_timeline(result: dict[str, Any]) -> None:
@@ -5602,8 +5655,8 @@ def render_recommendation_card(verdict: dict[str, Any]) -> None:
             box-sizing:border-box;
         ">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-                <div style="color:#547792; font-size:0.74rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">
-                    Recommendation
+                <div style="color:#FFFFFF !important; font-size:0.74rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">
+                    RECOMMENDATION
                 </div>
                 <div style="
                     display:inline-flex;
