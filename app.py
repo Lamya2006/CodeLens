@@ -4631,6 +4631,9 @@ def render_results(result: dict[str, Any]) -> None:
     render_knowledge_graph(result)
 
     st.markdown(divider_html, unsafe_allow_html=True)
+    render_chat_section(result)
+
+    st.markdown(divider_html, unsafe_allow_html=True)
     render_recommendation_card(verdict)
 
 
@@ -5613,6 +5616,138 @@ def render_metric_card(title: str, value: str) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_chat_section(result: dict[str, Any]) -> None:
+    """Context-aware chatbot grounded in the current analysis result."""
+    import openai as _openai
+
+    verdict = result.get("verdict", {})
+    analysis_data = result.get("analysis_data", {}) or {}
+    repo_meta = analysis_data.get("repo_metadata", {}) or {}
+    repo_name = repo_meta.get("name") or st.session_state.get("last_github_url", "the repository")
+
+    # ── Build system prompt from analysis context ──────────────────────────
+    skill_map = verdict.get("skill_map") or {}
+    strengths = verdict.get("strengths") or []
+    concerns = verdict.get("concerns") or []
+    ai_score = verdict.get("ai_usage_score", "N/A")
+    quality_score = verdict.get("overall_quality_score", "N/A")
+    commit_score = verdict.get("commit_health_score", "N/A")
+    summary = verdict.get("summary", "")
+    lang = repo_meta.get("primary_language", "unknown")
+    stars = repo_meta.get("star_count", 0)
+    contributors = repo_meta.get("contributor_count", 1)
+
+    confirmed_skills = [s for s, v in skill_map.items() if str(v).lower() == "confirmed"]
+    partial_skills = [s for s, v in skill_map.items() if str(v).lower() == "partial"]
+    missing_skills = [s for s, v in skill_map.items() if str(v).lower() not in ("confirmed", "partial")]
+
+    resume_data = result.get("resume_data") or {}
+    resume_section = ""
+    if resume_data:
+        resume_section = f"""
+Resume context:
+- Declared skills: {", ".join((resume_data.get("skills") or [])[:20])}
+- Resume inflation flags: {"; ".join((result.get("inflation_flags") or [])[:5]) or "None"}
+- Undeclared skills found in code: {", ".join((result.get("undeclared_skills") or [])[:10]) or "None"}
+"""
+
+    jd_data = result.get("job_description") or {}
+    jd_section = ""
+    if jd_data:
+        jd_section = f"""
+Job description context:
+- Role: {jd_data.get("role_title", "N/A")}
+- Required skills: {", ".join((jd_data.get("required_skills") or [])[:15])}
+- Job fit score: {verdict.get("job_fit_score", "N/A")} / 100
+"""
+
+    system_prompt = f"""You are CodeLens AI, an expert code review assistant. You have just analysed the repository "{repo_name}" and have full access to the results. Answer the recruiter or developer's questions concisely and accurately, grounded only in the data below. Do not speculate beyond what the analysis shows.
+
+Repository: {repo_name}
+Primary language: {lang} | Stars: {stars} | Contributors: {contributors}
+
+Scores (out of 100):
+- Overall quality: {quality_score}
+- AI usage: {ai_score} (higher = more AI-generated)
+- Commit health: {commit_score}
+
+Summary: {summary}
+
+Skills confirmed in code: {", ".join(confirmed_skills) or "None"}
+Skills partially evidenced: {", ".join(partial_skills) or "None"}
+Skills not found: {", ".join(missing_skills) or "None"}
+
+Strengths: {"; ".join(strengths[:5]) or "None noted"}
+Concerns: {"; ".join(concerns[:5]) or "None noted"}
+{resume_section}{jd_section}
+When you don't know something, say so clearly. Keep answers short unless the user asks for detail. Never fabricate commit details or file contents not mentioned above."""
+
+    # ── Session state for chat history ─────────────────────────────────────
+    chat_key = f"chat_history_{st.session_state.get('last_github_url', 'default')}"
+    if chat_key not in st.session_state:
+        st.session_state[chat_key] = []
+
+    # ── UI header ──────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div style="margin: 0 0 14px 0;">
+            <div class="small-label">Assistant</div>
+            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Ask about this repo</div>
+            <div class="muted" style="margin-top:5px;">Ask anything about the analysis — code quality, AI usage, skill gaps, commit patterns, or how this candidate compares to the job.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Render existing messages ───────────────────────────────────────────
+    for msg in st.session_state[chat_key]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # ── Inline input row ───────────────────────────────────────────────────
+    input_col, btn_col = st.columns([8, 1])
+    with input_col:
+        user_input = st.text_input(
+            "chat_input",
+            placeholder="Ask a question about this repository…",
+            label_visibility="collapsed",
+            key=f"{chat_key}_input",
+        )
+    with btn_col:
+        send = st.button("Send", key=f"{chat_key}_send", use_container_width=True)
+
+    if send and user_input.strip():
+        question = user_input.strip()
+        st.session_state[chat_key].append({"role": "user", "content": question})
+
+        with st.spinner("Thinking…"):
+            try:
+                client = _openai.OpenAI(
+                    api_key=os.getenv("OPENROUTER_API_KEY", ""),
+                    base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+                )
+                model = os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-sonnet-4")
+                if model.startswith("openrouter/"):
+                    model = model[len("openrouter/"):]
+
+                messages = [{"role": "system", "content": system_prompt}]
+                for m in st.session_state[chat_key][-10:]:
+                    messages.append({"role": m["role"], "content": m["content"]})
+
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=600,
+                    temperature=0.4,
+                )
+                reply = response.choices[0].message.content.strip()
+            except Exception as exc:
+                reply = f"Sorry, I couldn't reach the model right now. ({exc})"
+
+        st.session_state[chat_key].append({"role": "assistant", "content": reply})
+        st.rerun()
 
 
 def render_recommendation_card(verdict: dict[str, Any]) -> None:
