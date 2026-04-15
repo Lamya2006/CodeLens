@@ -2902,7 +2902,8 @@ def render_skill_map(result: dict[str, Any]) -> None:
           border-radius: 16px;
           box-sizing: border-box;
           padding: 20px 20px 18px;
-          min-height: 260px;
+          height: auto;
+          overflow: visible;
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           box-shadow: 0 16px 30px rgba(10,58,110,0.12);
@@ -3115,7 +3116,7 @@ def render_skill_map(result: dict[str, Any]) -> None:
       new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=360, scrolling=False)
+    components.html(html_block, height=540, scrolling=False)
 
 
 def render_ai_usage(result: dict[str, Any]) -> None:
@@ -3247,19 +3248,19 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           flex-wrap: wrap;
           gap: 16px;
           margin-top: 18px;
-          align-items: stretch;
+          align-items: flex-start;
           overflow: visible;
         }}
         #{container_id} .info-card {{
-          flex: 1 1 0;
+          flex: 1 1 220px;
+          min-width: 0;
           border-radius: var(--glass-radius-sm);
           border: 1px solid var(--glass-border-subtle);
           border-top: 1px solid var(--top-edge-highlight);
           backdrop-filter: var(--glass-blur-inner);
           -webkit-backdrop-filter: var(--glass-blur-inner);
-          padding: 18px 18px 32px 18px;
+          padding: 18px;
           height: auto;
-          min-height: max-content;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
@@ -3277,11 +3278,13 @@ def render_ai_usage(result: dict[str, Any]) -> None:
           display: flex;
           flex-direction: column;
           gap: 10px;
-          line-height: 1.45;
+          line-height: 1.55;
           flex: 1;
         }}
         #{container_id} .info-card li {{
           color: var(--text-secondary);
+          word-break: break-word;
+          overflow-wrap: break-word;
         }}
         #{container_id} .mono {{
           font-family: var(--font-mono);
@@ -3399,7 +3402,7 @@ def render_ai_usage(result: dict[str, Any]) -> None:
       new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=820, scrolling=False)
+    components.html(html_block, height=960, scrolling=True)
 
 
 def render_commit_timeline(result: dict[str, Any]) -> None:
@@ -4044,39 +4047,47 @@ def render_commit_timeline(result: dict[str, Any]) -> None:
           <div class="tl-legend-item"><div class="tl-legend-bar" style="background:var(--score-red); opacity:0.5; border-radius:0 0 2px 2px;"></div>Lines removed</div>
           <div class="tl-legend-item"><div class="tl-legend-line" style="background:{sparkline_color}; opacity:0.7;"></div>Cumulative LoC</div>
         </div>
-        <button id="{container_id}-info-btn" title="Graph element guide" style="
-          width:26px; height:26px; border-radius:50%;
-          border:1px solid var(--glass-border);
-          background:var(--glass-bg);
-          color:var(--text-muted);
-          font-size:13px; font-weight:700; line-height:1;
-          cursor:pointer; flex-shrink:0;
-          display:flex; align-items:center; justify-content:center;
-          transition:background 120ms ease, color 120ms ease;
-        ">i</button>
-      </div>
-      <!-- Info panel (hidden by default) -->
-      <div id="{container_id}-info-panel" style="
-        display:none;
-        margin-top:10px;
-        padding:13px 15px;
-        border-radius:12px;
-        background:var(--glass-bg);
-        border:1px solid var(--glass-border);
-        font-size:12px;
-        line-height:1.6;
-        color:var(--text-secondary);
-      ">
-        <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom:8px;">Graph element guide</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">
-          <div><span style="color:{dot_green}; font-weight:700;">&#11044;</span> Focused — small diff (&lt;25% of max)</div>
-          <div><span style="color:{dot_yellow}; font-weight:700;">&#11044;</span> Significant — medium diff (25–60%)</div>
-          <div><span style="color:{dot_red}; font-weight:700;">&#11044;</span> Major — large diff (&gt;60% of max)</div>
-          <div>Dot size scales with total diff volume</div>
-          <div><span style="color:var(--score-green); font-weight:700;">&#9646;</span> Green bar — lines added</div>
-          <div><span style="color:var(--score-red); font-weight:700;">&#9646;</span> Red bar — lines deleted</div>
-          <div>Sparkline — cumulative net LoC growth over time</div>
-          <div>Month separators group commits chronologically</div>
+        <!-- Info button with hover tooltip floating above -->
+        <div style="position:relative; flex-shrink:0;">
+          <button id="{container_id}-info-btn" style="
+            width:26px; height:26px; border-radius:50%;
+            border:1px solid var(--glass-border);
+            background:var(--glass-bg);
+            color:var(--text-muted);
+            font-size:13px; font-weight:700; line-height:1;
+            cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:background 120ms ease, color 120ms ease, border-color 120ms ease;
+          ">i</button>
+          <div id="{container_id}-info-panel" style="
+            display:none;
+            position:absolute;
+            bottom:calc(100% + 10px);
+            right:0;
+            z-index:999;
+            width:340px;
+            padding:13px 15px;
+            border-radius:12px;
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            box-shadow:0 8px 24px rgba(0,0,0,0.18);
+            font-size:12px;
+            line-height:1.6;
+            color:var(--text-secondary);
+            pointer-events:none;
+          ">
+            <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom:8px;">Graph element guide</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">
+              <div><span style="color:{dot_green}; font-weight:700;">&#11044;</span> Focused — small diff (&lt;25% of max)</div>
+              <div><span style="color:{dot_yellow}; font-weight:700;">&#11044;</span> Significant — medium diff (25–60%)</div>
+              <div><span style="color:{dot_red}; font-weight:700;">&#11044;</span> Major — large diff (&gt;60% of max)</div>
+              <div>Dot size scales with total diff volume</div>
+              <div><span style="color:var(--score-green); font-weight:700;">&#9646;</span> Green bar — lines added</div>
+              <div><span style="color:var(--score-red); font-weight:700;">&#9646;</span> Red bar — lines deleted</div>
+              <div>Sparkline — cumulative net LoC growth over time</div>
+              <div>Month separators group commits chronologically</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4236,16 +4247,19 @@ def render_commit_timeline(result: dict[str, Any]) -> None:
         }});
         root.addEventListener('blur', hideTip);
 
-        // ── info button ───────────────────────────────────────────────────────
+        // ── info button — hover tooltip ────────────────────────────────────────
         const infoBtn   = document.getElementById("{container_id}-info-btn");
         const infoPanel = document.getElementById("{container_id}-info-panel");
         if (infoBtn && infoPanel) {{
-          infoBtn.addEventListener('click', () => {{
-            const visible = infoPanel.style.display !== 'none';
-            infoPanel.style.display = visible ? 'none' : 'block';
-            infoBtn.style.color = visible ? 'var(--text-muted)' : 'var(--accent-blue)';
-            infoBtn.style.borderColor = visible ? 'var(--glass-border)' : 'var(--accent-blue)';
-            refreshHeight();
+          infoBtn.addEventListener('mouseenter', () => {{
+            infoPanel.style.display = 'block';
+            infoBtn.style.color = 'var(--accent-blue)';
+            infoBtn.style.borderColor = 'var(--accent-blue)';
+          }});
+          infoBtn.addEventListener('mouseleave', () => {{
+            infoPanel.style.display = 'none';
+            infoBtn.style.color = 'var(--text-muted)';
+            infoBtn.style.borderColor = 'var(--glass-border)';
           }});
         }}
 
@@ -4578,46 +4592,23 @@ def render_results(result: dict[str, Any]) -> None:
     render_skill_map(result)
     st.markdown(divider_html, unsafe_allow_html=True)
     st.markdown(
-        """
-        <div style="margin: 0 0 10px 0;">
-            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">AI Usage</div>
-        </div>
-        """,
+        """<div style="margin: 0 0 10px 0;"><div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">AI Usage</div></div>""",
         unsafe_allow_html=True,
     )
     render_ai_usage(result)
 
     st.markdown(divider_html, unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div style="margin: 0 0 10px 0;">
-            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Bugs &amp; code quality</div>
-            <div class="muted" style="margin-top:5px;">Structured findings from the code-quality pass (and judge summary when details are missing).</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    render_code_issues(result)
+    with st.expander("Bugs & Code Quality", expanded=False):
+        render_code_issues(result)
 
     if has_resume:
         st.markdown(divider_html, unsafe_allow_html=True)
-        st.markdown(
-            """
-            <div style="margin: 0 0 10px 0;">
-                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Resume</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        render_resume_panel(result)
+        with st.expander("Resume", expanded=False):
+            render_resume_panel(result)
     if has_jd:
         st.markdown(divider_html, unsafe_allow_html=True)
         st.markdown(
-            """
-            <div style="margin: 0 0 10px 0;">
-                <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Job Fit</div>
-            </div>
-            """,
+            """<div style="margin: 0 0 10px 0;"><div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Job Fit</div></div>""",
             unsafe_allow_html=True,
         )
         render_job_fit_panel(result)
@@ -4627,25 +4618,14 @@ def render_results(result: dict[str, Any]) -> None:
 
     st.markdown(divider_html, unsafe_allow_html=True)
     st.markdown(
-        """
-        <div style="margin: 0 0 10px 0;">
-            <div class="small-label">Graphs</div>
-            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Development Activity</div>
-        </div>
-        """,
+        """<div style="margin: 0 0 10px 0;"><div class="small-label">Graphs</div><div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Development Activity</div></div>""",
         unsafe_allow_html=True,
     )
     render_commit_timeline(result)
 
     st.markdown(divider_html, unsafe_allow_html=True)
     st.markdown(
-        """
-        <div style="margin: 0 0 10px 0;">
-            <div class="small-label">Codebase Structure</div>
-            <div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Knowledge Graph</div>
-            <div class="muted" style="margin-top:5px;">Force-directed map of files, directories, and symbols. <strong style="color:var(--accent-blue);">Click a file</strong> to read its code · drag to reposition · scroll to zoom · click dirs/symbols to highlight connections.</div>
-        </div>
-        """,
+        """<div style="margin: 0 0 10px 0;"><div class="small-label">Codebase Structure</div><div style="font-size:17px; font-weight:600; color:var(--text-primary); margin-top:4px; letter-spacing:-0.012em;">Codebase Graph</div><div class="muted" style="margin-top:5px;">Force-directed map of files, directories, and symbols. <strong style="color:var(--accent-blue);">Click a file</strong> to read its code · drag to reposition · scroll to zoom · click dirs/symbols to highlight connections.</div></div>""",
         unsafe_allow_html=True,
     )
     render_knowledge_graph(result)
@@ -5636,6 +5616,7 @@ def render_metric_card(title: str, value: str) -> None:
 
 
 def render_recommendation_card(verdict: dict[str, Any]) -> None:
+    is_dark = st.session_state.get("theme", "light") == "dark"
     score_text = f"{verdict.get('overall_quality_score', 'N/A')} / 100"
     summary_text = str(verdict.get("summary", "")).strip()
     reasoning_text = str(verdict.get("recommendation_reasoning", "")).strip()
@@ -5691,11 +5672,11 @@ def render_recommendation_card(verdict: dict[str, Any]) -> None:
             </div>
             <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(26,50,99,0.12); display:flex; gap:8px; align-items:flex-start;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="margin-top:1px; flex-shrink:0;">
-                    <circle cx="12" cy="12" r="9" stroke="#547792" stroke-width="1.8"></circle>
-                    <line x1="12" y1="10" x2="12" y2="16" stroke="#547792" stroke-width="1.8" stroke-linecap="round"></line>
-                    <circle cx="12" cy="7" r="1.1" fill="#547792"></circle>
+                    <circle cx="12" cy="12" r="9" stroke="{'#94a3b8' if is_dark else '#547792'}" stroke-width="1.8"></circle>
+                    <line x1="12" y1="10" x2="12" y2="16" stroke="{'#94a3b8' if is_dark else '#547792'}" stroke-width="1.8" stroke-linecap="round"></line>
+                    <circle cx="12" cy="7" r="1.1" fill="{'#94a3b8' if is_dark else '#547792'}"></circle>
                 </svg>
-                <div style="color:#547792; font-size:11px; font-style:italic; line-height:1.5;">
+                <div style="color:{'#cbd5e1' if is_dark else '#547792'}; font-size:11px; font-style:italic; line-height:1.5;">
                     {html.escape(str(verdict.get("disclaimer", DISCLAIM_TEXT)))}
                 </div>
             </div>
