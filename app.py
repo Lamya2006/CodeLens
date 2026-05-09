@@ -23,7 +23,12 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from agents.crew import CodeLensCrew
-from tools.payments import can_run_analysis, consume_use, create_checkout_session, free_uses_remaining, get_or_create_user
+from tools.payments import (
+    can_run_analysis, consume_use, create_checkout_session,
+    free_uses_remaining, get_or_create_user,
+    save_pending_analysis, get_pending_analysis, clear_pending_analysis,
+    process_successful_payment,
+)
 from guardrails.output_filter import OutputFilter
 from rag.indexer import CodeIndexer
 from rag.retriever import CodeRetriever
@@ -1742,11 +1747,12 @@ def handle_oauth_callback() -> None:
         user_response.raise_for_status()
         profile = user_response.json()
         username = profile.get("login", "")
-        st.session_state["user"] = {
+        user_data = {
             "username": username,
             "avatar_url": profile.get("avatar_url", ""),
             "access_token": token.get("access_token", ""),
         }
+        st.session_state["user"] = user_data
         st.session_state["last_error"] = None
         try:
             get_or_create_user(username)
@@ -6760,6 +6766,15 @@ def render_analyze_tab() -> None:
             )
             render_workflow_steps()
             st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        _pending_gh = st.session_state.pop("pending_github_url", "") or ""
+        _pending_jd = st.session_state.pop("pending_job_description", "") or ""
+        _pending_co = st.session_state.pop("pending_company_url", "") or ""
+        if _pending_gh:
+            st.session_state["github_url_input"] = _pending_gh
+        if _pending_jd:
+            st.session_state["job_description_input"] = _pending_jd
+        if _pending_co:
+            st.session_state["company_url_input"] = _pending_co
         github_url = st.text_input(
             "GitHub URL",
             placeholder="https://github.com/owner/repo",
@@ -6777,13 +6792,21 @@ def render_analyze_tab() -> None:
                 "Job description",
                 placeholder="Paste job description...",
                 height=170,
+                key="job_description_input",
             )
-        with st.expander("Compare with company coding style", expanded=False):
+        with st.expander("Compare with company coding style", expanded=bool(_pending_co)):
             company_github_url = st.text_input(
                 "Company GitHub URL",
                 placeholder="https://github.com/company/repo",
+                key="company_url_input",
             )
-        analyze_clicked = st.button("Analyze Repository", use_container_width=True, type="primary")
+        _is_running = st.session_state.get("_analysis_running", False)
+        analyze_clicked = st.button(
+            "Analyzing..." if _is_running else "Analyze Repository",
+            use_container_width=True,
+            type="primary",
+            disabled=_is_running,
+        )
         if show_hero:
             st.markdown(
                 '<p class="cl-hint-faint">Enter a public GitHub URL to begin</p>',
@@ -6810,13 +6833,9 @@ def render_analyze_tab() -> None:
 
     render_error_state()
 
-    # Handle return from Stripe checkout
-    payment_status = st.query_params.get("payment")
-    if payment_status == "success":
-        st.query_params.clear()
-        st.success("Payment confirmed! Your analysis credit is ready. Enter a GitHub URL and click Analyze.")
-    elif payment_status == "cancelled":
-        st.query_params.clear()
+    if st.session_state.pop("_payment_debug", None) is not None:
+        st.success("Payment confirmed! Your analysis credit is ready.")
+    if st.session_state.pop("_payment_cancelled", False):
         st.info("Payment cancelled. You can try again when you're ready.")
 
     if analyze_clicked:
@@ -6831,13 +6850,15 @@ def render_analyze_tab() -> None:
                 allowed, reason = can_run_analysis(username)
                 if not allowed:
                     try:
-                        checkout_url = create_checkout_session(username)
-                        free_left = free_uses_remaining(username)
-                        st.warning(
-                            f"You've used your {2 - free_left if free_left == 0 else ''} free analyses. "
-                            f"Each additional analysis is $2.00."
+                        save_pending_analysis(
+                            username,
+                            github_url.strip(),
+                            job_description,
+                            company_github_url.strip(),
                         )
-                        st.link_button("Pay with Stripe — $2.00", checkout_url, type="primary")
+                        checkout_url = create_checkout_session(username)
+                        st.warning("You've used your free analyses. Pay $3.00 to unlock 2 more analyses.")
+                        st.link_button("Pay with Stripe — $3.00 (2 analyses)", checkout_url, type="primary")
                     except Exception as exc:
                         st.error(f"Could not create payment session: {exc}")
                 else:
@@ -6849,6 +6870,7 @@ def render_analyze_tab() -> None:
                         )
                     else:
                         st.session_state["_last_analysis_started_ts"] = time.time()
+                        st.session_state["_analysis_running"] = True
                         try:
                             with st.status("Starting analysis...", expanded=True) as status_box:
                                 result = run_analysis_pipeline(
@@ -6859,6 +6881,7 @@ def render_analyze_tab() -> None:
                                     status_box=status_box,
                                 )
                             consume_use(username, reason)
+                            st.session_state["_analysis_running"] = False
                             st.session_state["last_result"] = result
                             st.session_state["last_github_url"] = github_url.strip()
                             st.session_state["last_error"] = None
@@ -6873,6 +6896,7 @@ def render_analyze_tab() -> None:
                                 job_description=job_description,
                             )
                         except Exception as exc:
+                            st.session_state["_analysis_running"] = False
                             st.session_state["last_result"] = None
                             detail = format_exception_for_user(exc)
                             st.session_state["last_error"] = {
@@ -7150,6 +7174,46 @@ def main() -> None:
     load_view_selection_from_query()
     load_history_selection_from_query()
     inject_global_styles()
+
+    # Handle Stripe return BEFORE auth gate — session is dead after redirect
+    _payment_status = st.query_params.get("payment")
+    if _payment_status == "success":
+        _gh_user = st.query_params.get("gh_user", "")
+        _stripe_sid = st.query_params.get("sid", "")
+        _dbg_lines = [f"payment=success gh_user={_gh_user!r} sid={_stripe_sid!r}"]
+        if _gh_user:
+            # Restore minimal session so user is "logged in"
+            if not st.session_state.get("user"):
+                st.session_state["user"] = {"username": _gh_user, "avatar_url": "", "access_token": ""}
+            # Increment paid uses
+            if _stripe_sid:
+                try:
+                    _added = process_successful_payment(_gh_user, _stripe_sid)
+                    _dbg_lines.append(f"process_successful_payment → added={_added}")
+                except Exception as _e:
+                    _dbg_lines.append(f"ERROR process_successful_payment: {_e}")
+            # Restore form inputs
+            try:
+                _pending = get_pending_analysis(_gh_user)
+                _dbg_lines.append(f"pending from DB: {_pending}")
+                if _pending.get("github_url"):
+                    st.session_state["github_url_input"] = _pending["github_url"]
+                if _pending.get("job_description"):
+                    st.session_state["job_description_input"] = _pending["job_description"]
+                if _pending.get("company_url"):
+                    st.session_state["company_url_input"] = _pending["company_url"]
+                clear_pending_analysis(_gh_user)
+            except Exception as _e:
+                _dbg_lines.append(f"ERROR get_pending_analysis: {_e}")
+        else:
+            _dbg_lines.append("WARNING: gh_user was empty")
+        st.session_state["_payment_debug"] = _dbg_lines
+        st.query_params.clear()
+        st.rerun()
+    elif _payment_status == "cancelled":
+        st.query_params.clear()
+        st.session_state["_payment_cancelled"] = True
+        st.rerun()
 
     # Route unauthenticated users to the dedicated login page
     if not st.session_state.get("user"):

@@ -16,3 +16,4 @@ pypdf
 plotly
 supabase
 stripe
+streamlit-cookies-controller

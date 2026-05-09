@@ -33,17 +33,29 @@ Deno.serve(async (req) => {
       return new Response("Missing metadata", { status: 400 });
     }
 
-    const { error } = await supabase
-      .from("users")
-      .upsert({ github_username: username, analysis_authorized: true })
+    // Fetch current paid_uses_remaining and increment by 1
+    const { data: rows, error: fetchError } = await supabase
+      .from("codelens_users")
+      .select("paid_uses_remaining")
       .eq("github_username", username);
 
-    if (error) {
-      console.error("Supabase update failed:", error);
+    if (fetchError) {
+      console.error("Supabase fetch failed:", fetchError);
       return new Response("DB error", { status: 500 });
     }
 
-    console.log(`Authorized analysis for ${username}`);
+    const current = rows?.[0]?.paid_uses_remaining ?? 0;
+
+    const { error: updateError } = await supabase
+      .from("codelens_users")
+      .upsert({ github_username: username, paid_uses_remaining: current + 2 });
+
+    if (updateError) {
+      console.error("Supabase update failed:", updateError);
+      return new Response("DB error", { status: 500 });
+    }
+
+    console.log(`Incremented paid_uses_remaining for ${username} to ${current + 1}`);
   }
 
   return new Response(JSON.stringify({ received: true }), {
