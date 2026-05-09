@@ -8,22 +8,6 @@ AI-powered code review agent that analyzes GitHub repositories to verify whether
 ## GitHub Login
 - To enable login, create a GitHub OAuth App at `github.com/settings/developers` with callback URL set to `{APP_URL}/component/streamlit_oauth.callback` or your Streamlit redirect URI.
 
-## .env API requirements:
-OPENROUTER_API_KEY
-PINECONE_API_KEY
-GITHUB_TOKEN
-VOYAGE_API_KEY
-APP_URL=http://localhost:8501
-OPENROUTER_MODEL
-GITNEXUS_USE_EMBEDDINGS=1
-GITNEXUS_CLONE_DEPTH=1
-GITNEXUS_FILE_LIMIT=2000
-GITHUB_CLIENT_ID
-GITHUB_CLIENT_SECRET
-VOYAGE_MAX_BATCH_TOKENS
-VOYAGE_CHARS_PER_TOKEN_EST
-VOYAGE_MAX_BATCH_ITEMS
-
 ## UI improvement ideas:
 [x] CodeLens logo
 [x] Match cluely.com design for inspo
@@ -57,5 +41,3 @@ Overall order:
 - Graph
 - Skill map
 - Recommendations
-
-streamlit run app.py --server.port 8501
