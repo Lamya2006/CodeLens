@@ -228,8 +228,8 @@ def _strict_json_mode() -> bool:
     """
     Use CrewAI's strict JSON schema mode only when the active model/provider can handle it.
 
-    Claude Opus 4.6 via the current OpenRouter provider path can reject large compiled grammars
-    generated from nested Pydantic schemas, so we fall back to prompt-only JSON for that model.
+    Some OpenRouter provider paths can reject large compiled grammars generated from nested
+    Pydantic schemas, so we fall back to prompt-only JSON for those models.
     Override with CREW_STRICT_JSON=1 or CREW_STRICT_JSON=0 if needed.
     """
     override = (os.getenv("CREW_STRICT_JSON") or "").strip().lower()
@@ -238,7 +238,16 @@ def _strict_json_mode() -> bool:
     if override in {"0", "false", "no", "off"}:
         return False
     model_name = (os.getenv("OPENROUTER_MODEL") or "").strip().lower()
-    return "claude-opus-4.6" not in model_name and "claude-sonnet-4" not in model_name
+    prompt_json_models = (
+        "claude-opus-4.6",
+        "claude-sonnet-4",
+        "deepseek/deepseek-chat",
+        "deepseek/deepseek-chat-v3",
+        "deepseek/deepseek-chat-v3-0324",
+        "deepseek-chat",
+        "deepseek-chat-v3",
+    )
+    return not any(model in model_name for model in prompt_json_models)
 
 
 def _format_model_json_error(candidate: str, *, reason: str) -> str:

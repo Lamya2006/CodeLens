@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import importlib
 import html
 import json
@@ -22,6 +23,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from agents.crew import CodeLensCrew
+from tools.payments import can_run_analysis, consume_use, create_checkout_session, free_uses_remaining, get_or_create_user
 from guardrails.output_filter import OutputFilter
 from rag.indexer import CodeIndexer
 from rag.retriever import CodeRetriever
@@ -99,6 +101,7 @@ def format_exception_for_user(exc: BaseException) -> str:
 
 
 HISTORY_DIR = _ROOT / "data" / "history"
+RESUMES_DIR = _ROOT / "data" / "resumes"
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USER_URL = "https://api.github.com/user"
@@ -233,6 +236,10 @@ def inject_global_styles() -> None:
                 --glass-blur-inner: var(--glass-blur-inner-theme) saturate(165%);
                 --glass-radius: 20px;
                 --glass-radius-sm: 14px;
+                --cl-radius-lg: 28px;
+                --cl-radius-md: 18px;
+                --cl-soft-shadow: 0 18px 70px rgba(15, 23, 42, 0.14), 0 2px 14px rgba(15, 23, 42, 0.06);
+                --cl-card-gradient: linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
                 --ease-swift: cubic-bezier(0.16, 1, 0.3, 1);
                 --theme-transition: 400ms ease-in-out;
                 --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
@@ -304,8 +311,8 @@ def inject_global_styles() -> None:
             }}
 
             .block-container {{
-                max-width: 1240px;
-                padding-top: 1.15rem;
+                max-width: 1180px;
+                padding-top: 1.35rem;
                 padding-bottom: 2.5rem;
             }}
 
@@ -367,11 +374,11 @@ def inject_global_styles() -> None:
             .glass-shell {{
                 position: relative;
                 overflow: hidden;
-                background: var(--glass-bg);
+                background: var(--cl-card-gradient), var(--glass-bg);
                 border: 1px solid var(--glass-border);
                 border-top: 1px solid var(--top-edge-highlight);
-                border-radius: var(--glass-radius);
-                box-shadow: var(--glass-shadow);
+                border-radius: var(--cl-radius-lg);
+                box-shadow: var(--cl-soft-shadow);
                 backdrop-filter: var(--glass-blur);
                 -webkit-backdrop-filter: var(--glass-blur);
             }}
@@ -1182,7 +1189,8 @@ def inject_global_styles() -> None:
                 justify-content: space-between;
                 gap: 16px;
                 flex-wrap: wrap;
-                margin-bottom: 8px;
+                margin-bottom: 18px;
+                padding: 18px 0 6px;
             }}
 
             .app-header-subtitle {{
@@ -1198,10 +1206,108 @@ def inject_global_styles() -> None:
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
                 color: var(--text-muted);
-                padding: 8px 12px;
+                padding: 9px 13px;
                 border-radius: 999px;
                 border: 1px solid var(--glass-border-subtle);
                 background: var(--glass-bg-inner);
+            }}
+
+            .cl-hero-panel {{
+                padding: 34px 34px 26px;
+                border-radius: 32px;
+                background:
+                    radial-gradient(circle at 12% 0%, rgba(96, 165, 250, 0.18), transparent 38%),
+                    radial-gradient(circle at 92% 18%, rgba(255, 255, 255, 0.16), transparent 34%),
+                    var(--cl-card-gradient),
+                    var(--glass-bg);
+                border: 1px solid var(--glass-border);
+                border-top: 1px solid var(--top-edge-highlight);
+                box-shadow: var(--cl-soft-shadow);
+                backdrop-filter: var(--glass-blur);
+                -webkit-backdrop-filter: var(--glass-blur);
+            }}
+
+            .cl-hero-copy {{
+                max-width: 580px;
+                color: var(--text-secondary);
+                font-size: 15px;
+                line-height: 1.58;
+                margin: 12px 0 0;
+            }}
+
+            .cl-workflow-strip {{
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 10px;
+                margin: 14px 0 16px;
+            }}
+
+            .cl-workflow-step {{
+                position: relative;
+                min-height: 108px;
+                padding: 15px 14px;
+                border-radius: 22px;
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid var(--glass-border-subtle);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+                overflow: hidden;
+            }}
+
+            .cl-workflow-step::after {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent 52%);
+                pointer-events: none;
+            }}
+
+            .cl-workflow-index {{
+                position: relative;
+                width: 26px;
+                height: 26px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                background: var(--accent-blue-light);
+                border: 1px solid rgba(96, 165, 250, 0.28);
+                color: var(--accent-blue);
+                font-size: 12px;
+                font-weight: 800;
+                margin-bottom: 10px;
+            }}
+
+            .cl-workflow-title {{
+                position: relative;
+                color: var(--text-primary);
+                font-size: 13px;
+                font-weight: 750;
+                line-height: 1.25;
+                margin-bottom: 6px;
+            }}
+
+            .cl-workflow-copy {{
+                position: relative;
+                color: var(--text-muted);
+                font-size: 11.5px;
+                line-height: 1.45;
+            }}
+
+            .cl-form-shell {{
+                padding: 22px;
+                border-radius: 28px;
+                background: var(--cl-card-gradient), var(--glass-bg);
+                border: 1px solid var(--glass-border);
+                border-top: 1px solid var(--top-edge-highlight);
+                box-shadow: var(--cl-soft-shadow);
+                backdrop-filter: var(--glass-blur);
+                -webkit-backdrop-filter: var(--glass-blur);
+            }}
+
+            @media (max-width: 980px) {{
+                .cl-workflow-strip {{
+                    grid-template-columns: 1fr;
+                }}
             }}
 
             @media (max-width: 980px) {{
@@ -1220,6 +1326,32 @@ def inject_global_styles() -> None:
                 }}
             }}
 
+            /* Small screen: prevent button/column overlap */
+            @media (max-width: 720px) {{
+                .block-container {{
+                    padding-left: 1rem !important;
+                    padding-right: 1rem !important;
+                }}
+
+                /* Stack tab buttons vertically on very small screens */
+                [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:first-child {{
+                    flex-wrap: wrap !important;
+                    gap: 6px !important;
+                }}
+
+                /* Sidebar controls — stack toggle box above logout */
+                [data-testid="stSidebar"] [data-testid="stHorizontalBlock"]:has([data-testid="stToggle"]) {{
+                    flex-wrap: wrap !important;
+                    border-radius: 12px !important;
+                    padding: 4px 8px !important;
+                }}
+            }}
+
+            /* Sidebar: cap column widths so controls never overlap */
+            [data-testid="stSidebar"] > div:first-child {{
+                overflow-x: hidden;
+            }}
+
             @media (prefers-reduced-motion: reduce) {{
                 .codelens-reveal,
                 .tab-fade,
@@ -1233,6 +1365,218 @@ def inject_global_styles() -> None:
                 [data-baseweb="radio"] label > div:last-child,
                 .score-gauge-arc {{
                     transition: none !important;
+                }}
+            }}
+
+            /* ── Login page ── */
+            .cl-login-hide-sidebar [data-testid="stSidebar"],
+            .cl-login-hide-sidebar [data-testid="stSidebarCollapseButton"] {{
+                display: none !important;
+            }}
+
+            .cl-login-card {{
+                padding: 0;
+                max-width: 560px;
+                width: 100%;
+                text-align: center;
+                margin: 0 auto;
+            }}
+
+            .cl-login-card .cl-brand-title-row {{
+                justify-content: center;
+                margin-bottom: 10px;
+            }}
+
+            .cl-login-auth-box {{
+                background: var(--glass-bg);
+                backdrop-filter: var(--glass-blur);
+                -webkit-backdrop-filter: var(--glass-blur);
+                border: 1px solid var(--glass-border);
+                border-radius: var(--glass-radius);
+                box-shadow: var(--glass-shadow);
+                padding: 24px;
+                max-width: 420px;
+                width: 100%;
+                margin: 24px auto 0;
+            }}
+
+            .cl-login-auth-note {{
+                margin-top: 12px;
+                color: var(--text-muted);
+                font-size: 0.84rem;
+                line-height: 1.5;
+            }}
+
+            .cl-login-tagline {{
+                color: var(--text-secondary);
+                font-size: 1.05rem;
+                margin-top: 8px;
+                line-height: 1.55;
+            }}
+
+            .cl-login-desc {{
+                color: var(--text-muted);
+                font-size: 0.93rem;
+                margin-top: 10px;
+                line-height: 1.6;
+            }}
+
+            .cl-login-divider {{
+                height: 1px;
+                background: var(--glass-border);
+                margin: 28px 0 24px;
+            }}
+
+            .cl-login-what-btn {{
+                background: var(--glass-bg);
+                backdrop-filter: var(--glass-blur);
+                -webkit-backdrop-filter: var(--glass-blur);
+                border: 1px solid var(--glass-border);
+                border-radius: 999px;
+                color: var(--text-primary) !important;
+                padding: 8px 20px;
+                font-size: 0.88rem;
+                font-weight: 500;
+                cursor: pointer;
+                text-decoration: none !important;
+                display: inline-flex;
+                align-items: center;
+                line-height: 1;
+                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            }}
+
+            .cl-login-what-btn:hover {{
+                background: var(--glass-bg-hover);
+                border-color: var(--accent-blue);
+                color: var(--accent-blue) !important;
+                text-decoration: none !important;
+            }}
+
+            .cl-top-control-backdrop {{
+                width: 100%;
+                max-width: 252px;
+                height: 58px;
+                margin: 0 0 -58px 0;
+                border-radius: 18px;
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-border);
+                border-top: 1px solid var(--top-edge-highlight);
+                box-shadow: var(--glass-shadow);
+                backdrop-filter: var(--glass-blur);
+                -webkit-backdrop-filter: var(--glass-blur);
+            }}
+
+            .cl-toggle-icon {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 38px;
+                margin: 0 auto;
+            }}
+
+            .cl-toggle-icon--moon {{
+                transform: translateX(-11px);
+            }}
+
+            /* Dialog / modal styling */
+            [data-testid="stDialog"] [role="dialog"] {{
+                width: min(760px, 92vw) !important;
+                max-width: 760px !important;
+                background: #ffffff !important;
+                border: 1px solid rgba(15, 23, 42, 0.12) !important;
+                border-radius: var(--glass-radius) !important;
+                box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18) !important;
+                color: #0f172a !important;
+            }}
+
+            [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{
+                background: transparent !important;
+                color: #0f172a !important;
+            }}
+
+            [data-testid="stDialogContent"] {{
+                background: transparent !important;
+                border: none !important;
+                border-radius: var(--glass-radius) !important;
+            }}
+
+            [data-testid="stDialog"] p,
+            [data-testid="stDialog"] div,
+            [data-testid="stDialog"] span,
+            [data-testid="stDialog"] h1,
+            [data-testid="stDialog"] h2,
+            [data-testid="stDialog"] h3 {{
+                color: #0f172a !important;
+            }}
+
+            .cl-dialog-shell {{
+                padding: 8px 12px 8px;
+                color: #0f172a;
+            }}
+
+            .cl-dialog-intro {{
+                color: #334155;
+                font-size: 0.98rem;
+                margin-bottom: 16px;
+                line-height: 1.65;
+            }}
+
+            .cl-feature-item {{
+                display: flex;
+                align-items: flex-start;
+                gap: 14px;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--glass-border-subtle);
+                text-align: left;
+            }}
+
+            .cl-feature-item:last-of-type {{
+                border-bottom: none;
+            }}
+
+            .cl-feature-icon {{
+                font-size: 1.2rem;
+                width: 24px;
+                flex-shrink: 0;
+                margin-top: 1px;
+                text-align: center;
+            }}
+
+            .cl-feature-text strong {{
+                color: #0f172a;
+                display: block;
+                font-size: 0.93rem;
+                margin-bottom: 2px;
+            }}
+
+            .cl-feature-text span {{
+                color: #475569;
+                font-size: 0.85rem;
+                line-height: 1.5;
+            }}
+
+            .cl-dialog-disclaimer {{
+                margin-top: 18px;
+                padding: 12px 16px;
+                background: #f8fafc;
+                border: 1px solid rgba(148, 163, 184, 0.24);
+                border-radius: var(--glass-radius-sm);
+                color: #334155;
+                font-size: 0.82rem;
+                line-height: 1.55;
+                text-align: center;
+            }}
+
+            @media (max-width: 700px) {{
+                .cl-top-control-backdrop {{
+                    width: 184px;
+                    height: 54px;
+                    margin-bottom: -54px;
+                }}
+
+                [data-testid="stDialog"] [role="dialog"] {{
+                    width: min(94vw, 620px) !important;
                 }}
             }}
         </style>
@@ -1270,6 +1614,8 @@ def init_session_state() -> None:
     st.session_state.setdefault("overview_section", "skill_map")
     st.session_state.setdefault("last_github_url", "")
     st.session_state.setdefault("render_id", "0")
+    st.session_state.setdefault("last_resume_path", None)
+    st.session_state.setdefault("last_job_description", "")
 
 
 def missing_api_keys() -> list[str]:
@@ -1327,9 +1673,11 @@ def get_oauth_session(state: str | None = None) -> OAuth2Session:
 def get_github_login_url() -> str | None:
     if not oauth_ready():
         return None
+    theme = st.session_state.get("theme", "light")
+    encoded_state = f"{uuid.uuid4().hex}__t_{theme}"
     session = get_oauth_session()
-    authorization_url, state = session.authorization_url(GITHUB_AUTH_URL)
-    st.session_state["oauth_state"] = state
+    authorization_url, _ = session.authorization_url(GITHUB_AUTH_URL, state=encoded_state)
+    st.session_state["oauth_state"] = encoded_state
     return authorization_url
 
 
@@ -1393,12 +1741,24 @@ def handle_oauth_callback() -> None:
         user_response = session.get(GITHUB_USER_URL, headers={"Accept": "application/vnd.github+json"})
         user_response.raise_for_status()
         profile = user_response.json()
+        username = profile.get("login", "")
         st.session_state["user"] = {
-            "username": profile.get("login", ""),
+            "username": username,
             "avatar_url": profile.get("avatar_url", ""),
             "access_token": token.get("access_token", ""),
         }
         st.session_state["last_error"] = None
+        try:
+            get_or_create_user(username)
+        except Exception:
+            pass
+        # Restore theme encoded in OAuth state so it survives the redirect
+        saved_state = st.session_state.get("oauth_state") or ""
+        if "__t_" in saved_state:
+            theme_hint = saved_state.split("__t_")[-1]
+            if theme_hint in ("light", "dark"):
+                st.session_state["theme"] = theme_hint
+                st.session_state["cl_appearance_toggle"] = theme_hint == "dark"
     except Exception as exc:
         st.session_state["last_error"] = {
             "message": "GitHub sign-in failed.",
@@ -1416,6 +1776,77 @@ def sign_out() -> None:
     st.session_state["cl_appearance_toggle"] = theme == "dark"
     st.query_params.clear()
     st.rerun()
+
+
+@st.dialog("What is CodeLens?")
+def show_what_is_this_dialog() -> None:
+    st.markdown(
+        f"""
+        <div class="cl-dialog-shell">
+            <div class="cl-dialog-intro">
+                An AI-powered code intelligence platform that gives recruiters and engineering managers
+                real signal about candidates — not just a list of keywords.
+            </div>
+            <div class="cl-feature-item">
+                <div class="cl-feature-icon">{_dialog_icon_svg("repository")}</div>
+                <div class="cl-feature-text">
+                    <strong>Repository Analysis</strong>
+                    <span>Deep scan of GitHub repos: code quality, commit patterns, and architecture overview.</span>
+                </div>
+            </div>
+            <div class="cl-feature-item">
+                <div class="cl-feature-icon">{_dialog_icon_svg("ai")}</div>
+                <div class="cl-feature-text">
+                    <strong>AI Usage Detection</strong>
+                    <span>Identifies how AI tools were used and whether the code shows genuine understanding.</span>
+                </div>
+            </div>
+            <div class="cl-feature-item">
+                <div class="cl-feature-icon">{_dialog_icon_svg("resume")}</div>
+                <div class="cl-feature-text">
+                    <strong>Resume Verification</strong>
+                    <span>Cross-references resume claims against actual code evidence — skill by skill.</span>
+                </div>
+            </div>
+            <div class="cl-feature-item">
+                <div class="cl-feature-icon">{_dialog_icon_svg("job")}</div>
+                <div class="cl-feature-text">
+                    <strong>Job Fit Scoring</strong>
+                    <span>Paste a job description to get a fit score and gap analysis for the candidate.</span>
+                </div>
+            </div>
+            <div class="cl-feature-item">
+                <div class="cl-feature-icon">{_dialog_icon_svg("verdict")}</div>
+                <div class="cl-feature-text">
+                    <strong>Hiring Verdict</strong>
+                    <span>Strong Hire / Hire / Maybe / Pass recommendation with evidence-backed reasoning.</span>
+                </div>
+            </div>
+            <div class="cl-dialog-disclaimer">
+                Each new account includes <strong>1 free analysis</strong>. Further analyses require a small payment.
+                All findings are probabilistic signals to assist — not replace — human judgment.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+@st.dialog("Sign out of CodeLens?")
+def show_logout_confirm_dialog() -> None:
+    st.markdown(
+        '<div style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:20px; line-height:1.6;">'
+        "Are you sure you want to sign out? Your analyses will be saved and available next time you log in."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Sign out", use_container_width=True, type="primary", key="logout-confirm-btn"):
+            sign_out()
+    with c2:
+        if st.button("Cancel", use_container_width=True, key="logout-cancel-btn"):
+            st.rerun()
 
 
 def load_history_selection_from_query() -> None:
@@ -1443,6 +1874,8 @@ def load_history_selection_from_query() -> None:
         if entry.get("id") == history_id:
             st.session_state["last_result"] = entry.get("result")
             st.session_state["last_github_url"] = entry.get("repo_url", "")
+            st.session_state["last_resume_path"] = entry.get("resume_path")
+            st.session_state["last_job_description"] = _load_jd_from_entry(entry)
             st.session_state["last_error"] = None
             st.session_state["active_view"] = "overview"
             st.session_state["render_id"] = uuid.uuid4().hex
@@ -1483,7 +1916,14 @@ def save_user_history(username: str, analyses: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps({"analyses": analyses}, indent=2), encoding="utf-8")
 
 
-def save_analysis_to_history(result: dict[str, Any], github_url: str, had_resume: bool, had_jd: bool) -> None:
+def save_analysis_to_history(
+    result: dict[str, Any],
+    github_url: str,
+    had_resume: bool,
+    had_jd: bool,
+    resume_bytes: bytes | None = None,
+    job_description: str = "",
+) -> None:
     user = st.session_state.get("user")
     if not user:
         return
@@ -1494,8 +1934,25 @@ def save_analysis_to_history(result: dict[str, Any], github_url: str, had_resume
     verdict = result["verdict"]
     repo_metadata = result["analysis_data"].get("repo_metadata", {})
     analyses = load_user_history(username)
+
+    analysis_id = str(uuid.uuid4())
+    user_resumes_dir = RESUMES_DIR / username
+    user_resumes_dir.mkdir(parents=True, exist_ok=True)
+
+    resume_path: str | None = None
+    if resume_bytes:
+        pdf_file = user_resumes_dir / f"{analysis_id}.pdf"
+        pdf_file.write_bytes(resume_bytes)
+        resume_path = str(pdf_file)
+
+    jd_path: str | None = None
+    if job_description.strip():
+        jd_file = user_resumes_dir / f"{analysis_id}_jd.txt"
+        jd_file.write_text(job_description, encoding="utf-8")
+        jd_path = str(jd_file)
+
     entry = {
-        "id": str(uuid.uuid4()),
+        "id": analysis_id,
         "analyzed_at": datetime.now(timezone.utc).isoformat(),
         "repo_url": github_url,
         "repo_name": repo_metadata.get("name") or repo_metadata.get("full_name") or github_url,
@@ -1507,10 +1964,14 @@ def save_analysis_to_history(result: dict[str, Any], github_url: str, had_resume
         "summary": verdict.get("summary"),
         "had_resume": had_resume,
         "had_jd": had_jd,
+        "resume_path": resume_path,
+        "jd_path": jd_path,
         "result": result,
     }
     analyses.insert(0, entry)
     save_user_history(username, analyses)
+    st.session_state["last_resume_path"] = resume_path
+    st.session_state["last_job_description"] = job_description
 
 
 def candidate_username_from_url(github_url: str) -> str:
@@ -1614,22 +2075,89 @@ def render_error_state() -> None:
         st.code(error.get("details", ""), language="text")
 
 
+def _oauth_button_html(login_url: str) -> str:
+    return f"""
+    <a class="oauth-button" href="{login_url}">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.67 0 8.2c0 3.63 2.29 6.7 5.47 7.78.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.49-2.01.38-2.53-.51-2.69-.98-.09-.24-.48-.98-.82-1.18-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.24 1.87.89 2.33.68.07-.54.28-.89.51-1.09-1.78-.21-3.64-.91-3.64-4.03 0-.89.31-1.62.82-2.19-.08-.21-.36-1.05.08-2.19 0 0 .67-.22 2.2.84A7.36 7.36 0 0 1 8 3.66c.68 0 1.37.09 2.01.27 1.53-1.06 2.2-.84 2.2-.84.44 1.14.16 1.98.08 2.19.51.57.82 1.29.82 2.19 0 3.13-1.87 3.82-3.65 4.03.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.14.47.55.39A8.23 8.23 0 0 0 16 8.2C16 3.67 12.42 0 8 0Z"></path>
+        </svg>
+        Sign in with GitHub
+    </a>
+    """
+
+
+def _login_auth_box_html(login_url: str | None) -> str:
+    button_html = (
+        _oauth_button_html(login_url)
+        if login_url
+        else '<div class="muted">GitHub login is unavailable until OAuth credentials are configured.</div>'
+    )
+    return f"""
+    <div class="cl-login-auth-box">
+        {button_html}
+        <div class="cl-login-auth-note">
+            Sign in with GitHub to unlock analysis history, repo scoring, AI usage insights, and resume verification.
+        </div>
+    </div>
+    """
+
+
+def _dialog_icon_svg(kind: str) -> str:
+    icons = {
+        "repository": (
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+            '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z" stroke="#2563eb" stroke-width="1.8"/>'
+            '<path d="M8 9h8M8 12h8M8 15h5" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round"/>'
+            '</svg>'
+        ),
+        "ai": (
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+            '<rect x="7" y="7" width="10" height="10" rx="2.5" stroke="#7c3aed" stroke-width="1.8"/>'
+            '<path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round"/>'
+            '</svg>'
+        ),
+        "resume": (
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+            '<path d="M8 3.5h6.5L19 8v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 7 19V5a1.5 1.5 0 0 1 1-1.4Z" stroke="#0ea5e9" stroke-width="1.8"/>'
+            '<path d="M14 3.8V8h4.2M9 11h6M9 14h6M9 17h4" stroke="#0ea5e9" stroke-width="1.8" stroke-linecap="round"/>'
+            '</svg>'
+        ),
+        "job": (
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+            '<path d="M8 7V5.8A1.8 1.8 0 0 1 9.8 4h4.4A1.8 1.8 0 0 1 16 5.8V7" stroke="#f59e0b" stroke-width="1.8"/>'
+            '<rect x="4" y="7" width="16" height="12" rx="2.5" stroke="#f59e0b" stroke-width="1.8"/>'
+            '<path d="M4 11.5h16M10.2 13.8h3.6" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>'
+            '</svg>'
+        ),
+        "verdict": (
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+            '<path d="M12 4l6.5 2.6v4.8c0 4.2-2.6 8-6.5 9.6-3.9-1.6-6.5-5.4-6.5-9.6V6.6z" stroke="#ef4444" stroke-width="1.8"/>'
+            '<path d="M9.2 12.1l1.9 1.9 3.7-4" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+            '</svg>'
+        ),
+    }
+    return icons[kind]
+
+
 def render_oauth_button() -> None:
     login_url = get_github_login_url()
     if not login_url:
         st.markdown('<div class="muted">GitHub login is unavailable until OAuth credentials are configured.</div>', unsafe_allow_html=True)
         return
     st.markdown(
-        f"""
-        <a class="oauth-button" href="{login_url}">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M8 0C3.58 0 0 3.67 0 8.2c0 3.63 2.29 6.7 5.47 7.78.4.08.55-.18.55-.39 0-.19-.01-.82-.01-1.49-2.01.38-2.53-.51-2.69-.98-.09-.24-.48-.98-.82-1.18-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.24 1.87.89 2.33.68.07-.54.28-.89.51-1.09-1.78-.21-3.64-.91-3.64-4.03 0-.89.31-1.62.82-2.19-.08-.21-.36-1.05.08-2.19 0 0 .67-.22 2.2.84A7.36 7.36 0 0 1 8 3.66c.68 0 1.37.09 2.01.27 1.53-1.06 2.2-.84 2.2-.84.44 1.14.16 1.98.08 2.19.51.57.82 1.29.82 2.19 0 3.13-1.87 3.82-3.65 4.03.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.14.47.55.39A8.23 8.23 0 0 0 16 8.2C16 3.67 12.42 0 8 0Z"></path>
-            </svg>
-            Sign in with GitHub
-        </a>
-        """,
+        _oauth_button_html(login_url),
         unsafe_allow_html=True,
     )
+
+
+def _load_jd_from_entry(entry: dict[str, Any]) -> str:
+    jd_path = entry.get("jd_path")
+    if not jd_path:
+        return ""
+    try:
+        return Path(jd_path).read_text(encoding="utf-8")
+    except Exception:
+        return ""
 
 
 def render_recent_history() -> None:
@@ -1676,6 +2204,8 @@ def render_recent_history() -> None:
         if st.button(f"Load {repo_name}", key=f"history-open-{entry['id']}", use_container_width=True):
             st.session_state["last_result"] = entry.get("result")
             st.session_state["last_github_url"] = entry.get("repo_url", "")
+            st.session_state["last_resume_path"] = entry.get("resume_path")
+            st.session_state["last_job_description"] = _load_jd_from_entry(entry)
             st.session_state["last_error"] = None
             st.session_state["active_view"] = "overview"
             st.session_state["render_id"] = uuid.uuid4().hex
@@ -1717,39 +2247,42 @@ def render_sidebar() -> None:
         user = st.session_state.get("user")
         if "cl_appearance_toggle" not in st.session_state:
             st.session_state.cl_appearance_toggle = st.session_state.get("theme", "light") == "dark"
-        _tc1, _tc2, _tc3, _tc4, _tc5 = st.columns([0.42, 0.9, 0.42, 0.42, 3.1], gap="small")
-        with _tc1:
-            st.markdown(
-                '<div style="display:flex; justify-content:center; align-items:center; height:38px;">'
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
-                '<circle cx="12" cy="12" r="5"/>'
-                '<line x1="12" y1="1" x2="12" y2="3"/>'
-                '<line x1="12" y1="21" x2="12" y2="23"/>'
-                '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>'
-                '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>'
-                '<line x1="1" y1="12" x2="3" y2="12"/>'
-                '<line x1="21" y1="12" x2="23" y2="12"/>'
-                '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>'
-                '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
-                '</svg></div>',
-                unsafe_allow_html=True,
-            )
-        with _tc2:
-            st.toggle("Appearance", key="cl_appearance_toggle", label_visibility="collapsed")
-        with _tc3:
-            st.markdown(
-                '<div class="cl-sidebar-moon-icon" style="display:flex; justify-content:center; align-items:center; height:38px;">'
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
-                '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
-                '</svg></div>',
-                unsafe_allow_html=True,
-            )
-        with _tc4:
+
+        _sun_svg = (
+            '<div style="display:flex;align-items:center;justify-content:center;height:36px;">'
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<circle cx="12" cy="12" r="5"/>'
+            '<line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>'
+            '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>'
+            '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>'
+            '<line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'
+            '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>'
+            '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+            '</svg></div>'
+        )
+        _moon_svg = (
+            '<div style="display:flex;align-items:center;justify-content:center;height:36px;">'
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+            '</svg></div>'
+        )
+
+        _ctrl_l, _ctrl_r = st.columns([1, 1], gap="small")
+        with _ctrl_l:
+            _t1, _t2, _t3 = st.columns([0.45, 1, 0.45], gap="small")
+            with _t1:
+                st.markdown(_sun_svg, unsafe_allow_html=True)
+            with _t2:
+                st.toggle("Theme", key="cl_appearance_toggle", label_visibility="collapsed")
+            with _t3:
+                st.markdown(_moon_svg, unsafe_allow_html=True)
+        with _ctrl_r:
             if user:
-                if st.button("↗", key="sidebar-signout"):
-                    sign_out()
-            else:
-                st.markdown('<div style="height:38px;"></div>', unsafe_allow_html=True)
+                if st.button("Log out", key="sidebar-signout", use_container_width=True):
+                    show_logout_confirm_dialog()
+
         if st.session_state.cl_appearance_toggle != (st.session_state.get("theme", "light") == "dark"):
             new_theme = "dark" if st.session_state.cl_appearance_toggle else "light"
             st.session_state["theme"] = new_theme
@@ -1759,43 +2292,25 @@ def render_sidebar() -> None:
         st.markdown(
             """
             <style>
-                [data-testid="stSidebar"] .stButton > button {
-                    justify-content: flex-start;
-                    padding-left: 14px;
-                    font-weight: 600;
+                /* Toggle box — glass pill around sun/toggle/moon */
+                [data-testid="stSidebar"] [data-testid="stHorizontalBlock"]:has([data-testid="stToggle"]) {
+                    background: var(--glass-bg-inner);
+                    border: 1px solid var(--glass-border-subtle);
+                    border-radius: 999px;
+                    padding: 2px 6px;
+                    align-items: center;
                 }
+
+                /* Toggle widget centering */
                 [data-testid="stSidebar"] [data-testid="stToggle"] {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    min-height: 38px;
+                    min-height: 36px;
                 }
                 [data-testid="stSidebar"] [data-testid="stToggle"] > label {
                     margin: 0 auto !important;
-                }
-                [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
-                    background: var(--glass-inner-bg) !important;
-                    color: var(--sidebar-fg) !important;
-                    border: 1px solid var(--glass-border-subtle) !important;
-                    backdrop-filter: blur(8px) !important;
-                }
-                [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
-                    background: var(--glass-bg-hover) !important;
-                    border-color: var(--accent-blue) !important;
-                }
-                [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-                    background: var(--accent-blue) !important;
-                    color: #ffffff !important;
-                    border: none !important;
-                    box-shadow: 0 2px 8px rgba(56, 168, 245, 0.3) !important;
-                }
-                [data-testid="stSidebar"] button[kind="secondary"],
-                [data-testid="stSidebar"] button[kind="primary"] {
-                    min-height: 38px !important;
-                }
-                /* Larger, outlined appearance toggle */
-                [data-testid="stSidebar"] [data-testid="stToggle"] > label {
-                    transform: scale(1.18);
+                    transform: scale(1.1);
                     transform-origin: center;
                 }
                 [data-testid="stSidebar"] [data-testid="stToggle"] > label > div[data-checked="false"] {
@@ -1805,6 +2320,55 @@ def render_sidebar() -> None:
                 [data-testid="stSidebar"] [data-testid="stToggle"] > label > div[data-checked="true"] {
                     border: 2px solid var(--accent-blue) !important;
                     background: var(--accent-blue) !important;
+                }
+
+                /* Log out button */
+                [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
+                [data-testid="stSidebar"] .stButton > button {
+                    background: var(--glass-bg-inner) !important;
+                    color: var(--text-primary) !important;
+                    border: 1px solid var(--glass-border-subtle) !important;
+                    border-radius: 999px !important;
+                    font-size: 0.82rem !important;
+                    font-weight: 600 !important;
+                    min-height: 36px !important;
+                    padding: 4px 14px !important;
+                    justify-content: center !important;
+                }
+                [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover,
+                [data-testid="stSidebar"] .stButton > button:hover {
+                    background: var(--glass-bg-hover) !important;
+                    border-color: var(--accent-blue) !important;
+                    color: var(--accent-blue) !important;
+                }
+
+                /* Sidebar collapse / expand toggle — Cursor-style icon */
+                [data-testid="stSidebarCollapseButton"] button,
+                [data-testid="collapsedControl"] button {
+                    width: 34px !important;
+                    height: 34px !important;
+                    min-width: 34px !important;
+                    border-radius: 8px !important;
+                    background: var(--glass-bg) !important;
+                    border: 1px solid var(--glass-border) !important;
+                    color: var(--text-primary) !important;
+                    box-shadow: var(--glass-shadow) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 0 !important;
+                }
+                [data-testid="stSidebarCollapseButton"] button:hover,
+                [data-testid="collapsedControl"] button:hover {
+                    background: var(--glass-bg-hover) !important;
+                    border-color: var(--accent-blue) !important;
+                }
+                [data-testid="stSidebarCollapseButton"] button svg,
+                [data-testid="collapsedControl"] button svg {
+                    width: 18px !important;
+                    height: 18px !important;
+                    stroke: var(--text-primary) !important;
+                    fill: none !important;
                 }
             </style>
             """,
@@ -2301,12 +2865,18 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
           padding: 16px 14px 10px 14px;
           overflow: visible;
           box-sizing: border-box;
+          cursor: pointer;
           transition: transform 180ms var(--ease-swift), box-shadow var(--theme-transition), border-color var(--theme-transition), background-color var(--theme-transition), color var(--theme-transition);
         }}
         #{container_id} .gauge-card:hover {{
           transform: translateY(-4px);
           background: var(--glass-bg-hover);
           box-shadow: var(--glass-shadow), 0 0 24px var(--card-glow);
+        }}
+        #{container_id} .gauge-card:focus-visible {{
+          outline: none;
+          border-color: var(--accent-blue);
+          box-shadow: var(--glass-shadow), 0 0 0 3px rgba(56,168,245,0.18);
         }}
         #{container_id} .gauge-title {{
           font-size: 0.88rem;
@@ -2320,6 +2890,16 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         #{container_id} .gauge-plot {{
           width: 100%;
           height: 188px;
+        }}
+        #{container_id} .gauge-action {{
+          margin-top: -4px;
+          text-align: center;
+          color: var(--accent-blue);
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          opacity: 0.78;
         }}
         #{container_id} .gauge-tooltip {{
           position: fixed;
@@ -2399,6 +2979,8 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       const plotEls = [];
       let activeCard = null;
       let portalTooltip = null;
+      let portalModal = null;
+      let portalModalKeyHandler = null;
 
       function getPortalTooltip() {{
         if (portalTooltip) {{
@@ -2516,6 +3098,152 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
         refreshFrameHeight();
       }}
 
+      function getPortalModal() {{
+        if (portalModal) {{
+          return portalModal;
+        }}
+        try {{
+          const parentDoc = window.parent && window.parent.document;
+          if (!parentDoc || !parentDoc.body) {{
+            return null;
+          }}
+          portalModal = parentDoc.createElement('div');
+          portalModal.setAttribute('aria-hidden', 'true');
+          portalModal.style.position = 'fixed';
+          portalModal.style.inset = '0';
+          portalModal.style.zIndex = '1000000';
+          portalModal.style.display = 'flex';
+          portalModal.style.alignItems = 'center';
+          portalModal.style.justifyContent = 'center';
+          portalModal.style.padding = '24px';
+          portalModal.style.background = 'rgba(2, 6, 23, 0.74)';
+          portalModal.style.backdropFilter = 'blur(10px)';
+          portalModal.style.webkitBackdropFilter = 'blur(10px)';
+          portalModal.style.opacity = '0';
+          portalModal.style.visibility = 'hidden';
+          portalModal.style.transition = 'opacity 180ms ease, visibility 180ms ease';
+          parentDoc.body.appendChild(portalModal);
+          portalModal.addEventListener('click', (event) => {{
+            if (event.target === portalModal) {{
+              closeMetricModal();
+            }}
+          }});
+          return portalModal;
+        }} catch (e) {{
+          return null;
+        }}
+      }}
+
+      function closeMetricModal() {{
+        const modal = getPortalModal();
+        if (!modal) {{
+          return;
+        }}
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        modal.setAttribute('aria-hidden', 'true');
+        try {{
+          const parentDoc = window.parent && window.parent.document;
+          if (parentDoc && portalModalKeyHandler) {{
+            parentDoc.removeEventListener('keydown', portalModalKeyHandler);
+          }}
+        }} catch (e) {{}}
+        portalModalKeyHandler = null;
+      }}
+
+      function showMetricModal(metric) {{
+        hideTooltip();
+        const modal = getPortalModal();
+        if (!modal) {{
+          return;
+        }}
+        const scoreLabel = metric.muted ? 'Not available yet' : `${{Math.round(metric.score)}} / 100`;
+        modal.innerHTML = `
+          <div role="dialog" aria-modal="true" aria-label="${{metric.title}} details" style="
+            width:min(680px, calc(100vw - 40px));
+            max-height:min(78vh, 720px);
+            overflow:auto;
+            box-sizing:border-box;
+            border-radius:28px;
+            background:#ffffff;
+            color:#0f172a;
+            box-shadow:0 30px 90px rgba(0,0,0,0.36);
+            border:1px solid rgba(255,255,255,0.55);
+            padding:28px;
+            font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter',system-ui,sans-serif;
+          ">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px;">
+              <div>
+                <div style="font-size:0.76rem; font-weight:850; letter-spacing:0.1em; text-transform:uppercase; color:#2563eb; margin-bottom:8px;">
+                  Score Details
+                </div>
+                <div style="font-size:1.65rem; line-height:1.08; font-weight:850; letter-spacing:-0.035em; color:#0f172a;">
+                  ${{metric.title}}
+                </div>
+              </div>
+              <button type="button" aria-label="Close details" style="
+                width:38px;
+                height:38px;
+                border-radius:999px;
+                border:1px solid rgba(15,23,42,0.12);
+                background:#f8fafc;
+                color:#0f172a;
+                font-size:22px;
+                line-height:1;
+                cursor:pointer;
+              ">&times;</button>
+            </div>
+            <div style="
+              display:inline-flex;
+              align-items:center;
+              gap:8px;
+              padding:8px 13px;
+              border-radius:999px;
+              background:#eff6ff;
+              border:1px solid #bfdbfe;
+              color:#1d4ed8;
+              font-size:0.86rem;
+              font-weight:800;
+              margin-bottom:18px;
+            ">
+              ${{scoreLabel}}
+            </div>
+            <div style="
+              border-radius:20px;
+              background:#f8fafc;
+              border:1px solid rgba(148,163,184,0.22);
+              padding:18px 20px;
+            ">
+              <ul style="margin:0; padding-left:20px; color:#334155; font-size:0.98rem; line-height:1.7;">
+                ${{metric.detail_html}}
+              </ul>
+            </div>
+            <div style="margin-top:16px; color:#64748b; font-size:0.84rem; line-height:1.55;">
+              Click outside this panel or press Escape to close.
+            </div>
+          </div>
+        `;
+        const closeButton = modal.querySelector('button[aria-label="Close details"]');
+        if (closeButton) {{
+          closeButton.addEventListener('click', closeMetricModal);
+          setTimeout(() => closeButton.focus(), 0);
+        }}
+        portalModalKeyHandler = (event) => {{
+          if (event.key === 'Escape') {{
+            closeMetricModal();
+          }}
+        }};
+        try {{
+          const parentDoc = window.parent && window.parent.document;
+          if (parentDoc) {{
+            parentDoc.addEventListener('keydown', portalModalKeyHandler);
+          }}
+        }} catch (e) {{}}
+        modal.style.visibility = 'visible';
+        modal.style.opacity = '1';
+        modal.setAttribute('aria-hidden', 'false');
+      }}
+
       function getActiveTooltipEl() {{
         return getPortalTooltip() || tooltip;
       }}
@@ -2612,15 +3340,24 @@ def render_gauge_results_row(result: dict[str, Any]) -> None:
       metrics.forEach((metric, idx) => {{
         const card = document.createElement('div');
         card.className = 'gauge-card';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `${{metric.title}} details`);
         card.innerHTML = `
           <div class="gauge-title">${{metric.title}}</div>
           <div class="gauge-plot" id="{container_id}-plot-${{idx}}"></div>
+          <div class="gauge-action">Click for details</div>
         `;
         grid.appendChild(card);
         const plotEl = card.querySelector('.gauge-plot');
         plotEls.push(plotEl);
-        card.addEventListener('mouseenter', () => showTooltip(card, metric));
-        card.addEventListener('mouseleave', hideTooltip);
+        card.addEventListener('click', () => showMetricModal(metric));
+        card.addEventListener('keydown', (event) => {{
+          if (event.key === 'Enter' || event.key === ' ') {{
+            event.preventDefault();
+            showMetricModal(metric);
+          }}
+        }});
         Plotly.newPlot(plotEl, buildGauge(metric, hasAnimated ? metric.score : 0), plotLayout(), plotConfig()).then(refreshFrameHeight);
       }});
       scroller.addEventListener('scroll', () => {{
@@ -2703,6 +3440,18 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
         """
         for item in concerns
     )
+
+    chars_per_line = 52
+    px_per_line = 20
+    item_padding = 36
+    header_px = 60
+    def _card_height(items: list[str]) -> int:
+        total = header_px
+        for item in items:
+            lines = max(1, len(item) // chars_per_line + 1)
+            total += item_padding + lines * px_per_line
+        return total
+    estimated_height = max(_card_height(strengths), _card_height(concerns)) + 40
 
     container_id = f"strengths-concerns-{uuid.uuid4().hex}"
     theme_css = _iframe_theme_css()
@@ -2838,7 +3587,7 @@ def render_strengths_and_concerns(result: dict[str, Any]) -> None:
       new MutationObserver(refreshHeight).observe(root, {{ childList: true, subtree: true, attributes: true }});
     </script>
     """
-    components.html(html_block, height=420, scrolling=False)
+    components.html(html_block, height=estimated_height, scrolling=False)
 
 
 def render_skill_map(result: dict[str, Any]) -> None:
@@ -3120,13 +3869,12 @@ def render_skill_map(result: dict[str, Any]) -> None:
 
 
 def render_ai_usage(result: dict[str, Any]) -> None:
-    baseline = result["analysis_data"].get("baseline_comparison", {})
-    ai_similarity = int(round(float(baseline.get("ai_similarity", 0.62)) * 100)) if baseline else 62
-    human_similarity = int(round(float(baseline.get("human_similarity", 0.38)) * 100)) if baseline else 38
-    if ai_similarity <= 0 and human_similarity <= 0:
-        ai_similarity, human_similarity = 62, 38
-    total = max(ai_similarity + human_similarity, 1)
-    ai_similarity = round((ai_similarity / total) * 100)
+    verdict = result.get("verdict", {})
+    raw_score = verdict.get("ai_usage_score")
+    if isinstance(raw_score, int) and 0 <= raw_score <= 100:
+        ai_similarity = raw_score
+    else:
+        ai_similarity = 50
     human_similarity = 100 - ai_similarity
 
     flags, signals, good_examples = _build_ai_usage_card_lists(result)
@@ -4404,6 +5152,31 @@ def render_resume_panel(result: dict[str, Any]) -> None:
         st.info("Resume analysis is only shown when a resume file is uploaded.")
         return
 
+    resume_path = st.session_state.get("last_resume_path")
+    if resume_path:
+        try:
+            pdf_bytes = Path(resume_path).read_bytes()
+            col_view, col_dl = st.columns([3, 1])
+            with col_view:
+                st.markdown("**Submitted Resume**")
+            with col_dl:
+                st.download_button(
+                    "Download PDF",
+                    data=pdf_bytes,
+                    file_name="resume.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            pdf_b64 = base64.b64encode(pdf_bytes).decode()
+            components.html(
+                f'<iframe src="data:application/pdf;base64,{pdf_b64}" '
+                f'width="100%" height="700" style="border:none; border-radius:8px;"></iframe>',
+                height=715,
+            )
+            st.markdown('<div class="sidebar-divider" style="margin:16px 0;"></div>', unsafe_allow_html=True)
+        except Exception:
+            pass
+
     inflation_flags = _resume_inflation_flag_lines(result)
     st.markdown('<div class="issue-section-label">Resume Inflation Flags</div>', unsafe_allow_html=True)
     if inflation_flags:
@@ -4425,6 +5198,15 @@ def render_job_fit_panel(result: dict[str, Any]) -> None:
     if not job_data:
         st.info("Job fit appears when a job description is provided.")
         return
+
+    jd_text = st.session_state.get("last_job_description", "")
+    if jd_text.strip():
+        with st.expander("View submitted job description", expanded=False):
+            st.markdown(
+                f'<div style="white-space:pre-wrap; font-size:0.9rem; color:var(--text-secondary); '
+                f'line-height:1.6;">{html.escape(jd_text)}</div>',
+                unsafe_allow_html=True,
+            )
 
     score = verdict.get("job_fit_score")
     score_display = score if isinstance(score, int) else 35
@@ -5905,6 +6687,34 @@ def render_recommendation_card(verdict: dict[str, Any]) -> None:
     )
 
 
+def render_workflow_steps() -> None:
+    steps = [
+        ("Validate", "Check the GitHub URL and repository size before spending tokens."),
+        ("Map", "Collect commits, files, symbols, and the knowledge graph with GitNexus fallback."),
+        ("Embed", "Index code chunks in Pinecone with Voyage embeddings for evidence retrieval."),
+        ("Match", "Compare resume and job-description claims against actual code evidence."),
+        ("Synthesize", "Run the agent review, normalize the verdict, and apply guardrails."),
+    ]
+    cards = "".join(
+        f"""
+        <div class="cl-workflow-step">
+            <div class="cl-workflow-index">{idx}</div>
+            <div class="cl-workflow-title">{html.escape(title)}</div>
+            <div class="cl-workflow-copy">{html.escape(copy)}</div>
+        </div>
+        """
+        for idx, (title, copy) in enumerate(steps, start=1)
+    )
+    st.markdown(
+        f"""
+        <div class="cl-workflow-strip" aria-label="CodeLens analysis workflow">
+            {cards}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_analyze_tab() -> None:
     has_result = st.session_state.get("last_result") is not None
     rid = st.session_state.get("render_id", "0")
@@ -5936,19 +6746,20 @@ def render_analyze_tab() -> None:
         if show_hero:
             st.markdown(
                 f"""
-                <div class="cl-glass-panel cl-animate-{rid}" style="padding:28px 28px 20px 28px; animation: cl-fadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;">
+                <div class="cl-hero-panel cl-animate-{rid}" style="animation: cl-fadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;">
                     <div class="cl-brand-title-row">
                         <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=32)}</div>
                         <div class="cl-wordmark" style="font-size:28px;"><span>Code</span><span>Lens</span></div>
                     </div>
-                    <p style="color:var(--text-secondary); font-size:15px; margin:10px 0 0 0; line-height:1.5;">
+                    <p class="cl-hero-copy">
                         {html.escape(BRAND_TAGLINE)}
                     </p>
                 </div>
-                <div style="height:12px"></div>
                 """,
                 unsafe_allow_html=True,
             )
+            render_workflow_steps()
+            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         github_url = st.text_input(
             "GitHub URL",
             placeholder="https://github.com/owner/repo",
@@ -5999,48 +6810,78 @@ def render_analyze_tab() -> None:
 
     render_error_state()
 
+    # Handle return from Stripe checkout
+    payment_status = st.query_params.get("payment")
+    if payment_status == "success":
+        st.query_params.clear()
+        st.success("Payment confirmed! Your analysis credit is ready. Enter a GitHub URL and click Analyze.")
+    elif payment_status == "cancelled":
+        st.query_params.clear()
+        st.info("Payment cancelled. You can try again when you're ready.")
+
     if analyze_clicked:
         if not github_url.strip():
             st.error("Please enter a GitHub repository URL to analyze.")
         else:
-            wait = _analysis_cooldown_seconds_remaining()
-            if wait is not None:
-                st.warning(
-                    f"Analysis cooldown: wait {int(wait) + 1}s before starting another run "
-                    f"(set CODELENS_ANALYSIS_COOLDOWN_SECONDS=0 in `.env` to disable)."
-                )
+            user = st.session_state.get("user")
+            if not user:
+                st.error("Please sign in with GitHub before running an analysis.")
             else:
-                st.session_state["_last_analysis_started_ts"] = time.time()
-                try:
-                    with st.status("Starting analysis...", expanded=True) as status_box:
-                        result = run_analysis_pipeline(
-                            github_url=github_url.strip(),
-                            uploaded_file=uploaded_file,
-                            job_description=job_description,
-                            company_github_url=company_github_url.strip(),
-                            status_box=status_box,
+                username = user.get("username", "")
+                allowed, reason = can_run_analysis(username)
+                if not allowed:
+                    try:
+                        checkout_url = create_checkout_session(username)
+                        free_left = free_uses_remaining(username)
+                        st.warning(
+                            f"You've used your {2 - free_left if free_left == 0 else ''} free analyses. "
+                            f"Each additional analysis is $2.00."
                         )
-                    st.session_state["last_result"] = result
-                    st.session_state["last_github_url"] = github_url.strip()
-                    st.session_state["last_error"] = None
-                    st.session_state["render_id"] = uuid.uuid4().hex
-                    st.session_state["active_view"] = "overview"
-                    save_analysis_to_history(
-                        result=result,
-                        github_url=github_url.strip(),
-                        had_resume=uploaded_file is not None,
-                        had_jd=bool(job_description.strip()),
-                    )
-                except Exception as exc:
-                    st.session_state["last_result"] = None
-                    detail = format_exception_for_user(exc)
-                    st.session_state["last_error"] = {
-                        "message": "Analysis could not be completed. Please review the inputs and try again.",
-                        "details": detail,
-                    }
-                    st.error(st.session_state["last_error"]["message"])
-                    with st.expander("Details"):
-                        st.code(detail, language="text")
+                        st.link_button("Pay with Stripe — $2.00", checkout_url, type="primary")
+                    except Exception as exc:
+                        st.error(f"Could not create payment session: {exc}")
+                else:
+                    wait = _analysis_cooldown_seconds_remaining()
+                    if wait is not None:
+                        st.warning(
+                            f"Analysis cooldown: wait {int(wait) + 1}s before starting another run "
+                            f"(set CODELENS_ANALYSIS_COOLDOWN_SECONDS=0 in `.env` to disable)."
+                        )
+                    else:
+                        st.session_state["_last_analysis_started_ts"] = time.time()
+                        try:
+                            with st.status("Starting analysis...", expanded=True) as status_box:
+                                result = run_analysis_pipeline(
+                                    github_url=github_url.strip(),
+                                    uploaded_file=uploaded_file,
+                                    job_description=job_description,
+                                    company_github_url=company_github_url.strip(),
+                                    status_box=status_box,
+                                )
+                            consume_use(username, reason)
+                            st.session_state["last_result"] = result
+                            st.session_state["last_github_url"] = github_url.strip()
+                            st.session_state["last_error"] = None
+                            st.session_state["render_id"] = uuid.uuid4().hex
+                            st.session_state["active_view"] = "overview"
+                            save_analysis_to_history(
+                                result=result,
+                                github_url=github_url.strip(),
+                                had_resume=uploaded_file is not None,
+                                had_jd=bool(job_description.strip()),
+                                resume_bytes=uploaded_file.getvalue() if uploaded_file is not None else None,
+                                job_description=job_description,
+                            )
+                        except Exception as exc:
+                            st.session_state["last_result"] = None
+                            detail = format_exception_for_user(exc)
+                            st.session_state["last_error"] = {
+                                "message": "Analysis could not be completed. Please review the inputs and try again.",
+                                "details": detail,
+                            }
+                            st.error(st.session_state["last_error"]["message"])
+                            with st.expander("Details"):
+                                st.code(detail, language="text")
 
     if st.session_state.get("last_result"):
         st.markdown(
@@ -6179,12 +7020,142 @@ def render_logged_out_home() -> None:
         render_oauth_button()
 
 
+def render_login_page() -> None:
+    """Full-screen login page shown to unauthenticated users."""
+    # Hide sidebar and collapse button; lock "What is this?" to dark pill regardless of theme
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"] { display: none !important; }
+            [data-testid="stSidebarCollapseButton"] { display: none !important; }
+            .block-container { padding-top: 1.2rem !important; max-width: 100% !important; }
+
+            /* "What is this?" button — theme-aware pill */
+            [data-testid="stBaseButton-secondary"],
+            .stButton > button {
+                background: var(--glass-bg) !important;
+                color: var(--text-primary) !important;
+                border: 1px solid var(--glass-border) !important;
+                border-radius: 999px !important;
+                font-size: 0.88rem !important;
+                font-weight: 500 !important;
+                padding: 6px 20px !important;
+                min-height: unset !important;
+            }
+            [data-testid="stBaseButton-secondary"]:hover,
+            .stButton > button:hover {
+                background: var(--glass-bg-hover) !important;
+                border-color: var(--accent-blue) !important;
+                color: var(--accent-blue) !important;
+            }
+
+            /* Dialog close (X) button — always dark/visible */
+            [data-testid="stModal"] button[aria-label="Close"],
+            [data-testid="stDialog"] button[aria-label="Close"],
+            div[role="dialog"] button[aria-label="Close"] {
+                color: #111827 !important;
+                background: rgba(0,0,0,0.08) !important;
+                border-radius: 50% !important;
+            }
+
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Top bar ──────────────────────────────────────────
+    left_col, _, right_col = st.columns([3, 5, 3])
+
+    with left_col:
+        if "cl_appearance_toggle" not in st.session_state:
+            st.session_state.cl_appearance_toggle = st.session_state.get("theme", "light") == "dark"
+        sun_svg = (
+            '<div class="cl-toggle-icon">'
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
+            '<circle cx="12" cy="12" r="5"/>'
+            '<line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>'
+            '<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>'
+            '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>'
+            '<line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'
+            '<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>'
+            '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+            '</svg></div>'
+        )
+        moon_svg = (
+            '<div class="cl-toggle-icon cl-toggle-icon--moon">'
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;">'
+            '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+            '</svg></div>'
+        )
+        toggle_shell_col, _ = st.columns([1.15, 1.35], gap="small")
+        with toggle_shell_col:
+            st.markdown('<div class="cl-top-control-backdrop"></div>', unsafe_allow_html=True)
+            s1, s2, s3 = st.columns([0.62, 0.9, 0.62], gap="small")
+            with s1:
+                st.markdown(sun_svg, unsafe_allow_html=True)
+            with s2:
+                st.toggle("Theme", key="cl_appearance_toggle", label_visibility="collapsed")
+            with s3:
+                st.markdown(moon_svg, unsafe_allow_html=True)
+
+        if st.session_state.cl_appearance_toggle != (st.session_state.get("theme", "light") == "dark"):
+            new_theme = "dark" if st.session_state.cl_appearance_toggle else "light"
+            st.session_state["theme"] = new_theme
+            st.query_params["theme"] = new_theme
+            st.rerun()
+
+    with right_col:
+        st.markdown(
+            '<div style="display:flex;justify-content:flex-end;align-items:center;padding-top:4px;">',
+            unsafe_allow_html=True,
+        )
+        if st.button("What is this?", key="login-what-btn"):
+            show_what_is_this_dialog()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Centered login card ───────────────────────────────
+    st.markdown("<div style='height:8vh'></div>", unsafe_allow_html=True)
+    _, card_col, _ = st.columns([1, 1.5, 1])
+    with card_col:
+        login_url = get_github_login_url()
+        st.markdown(
+            f"""
+            <div class="cl-login-card">
+                <div class="cl-brand-title-row" style="justify-content:center; margin-bottom:6px;">
+                    <div class="cl-brand-logo-wrap">{_brand_logo_svg(size=46)}</div>
+                    <div class="cl-wordmark" style="font-size:2.6rem;"><span>Code</span><span>Lens</span></div>
+                </div>
+                <div class="cl-login-tagline">{html.escape(BRAND_TAGLINE)}</div>
+                <div class="cl-login-desc">
+                    Analyze GitHub repositories with AI to get hiring signals, code quality scores,
+                    commit behavior insights, and resume verification — all in one place.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if login_url:
+            st.markdown(_oauth_button_html(login_url), unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="muted">GitHub login is unavailable until OAuth credentials are configured.</div>', unsafe_allow_html=True)
+
+    render_error_state()
+
+
 def main() -> None:
     init_session_state()
     handle_oauth_callback()
     load_view_selection_from_query()
     load_history_selection_from_query()
     inject_global_styles()
+
+    # Route unauthenticated users to the dedicated login page
+    if not st.session_state.get("user"):
+        render_login_page()
+        return
+
     render_sidebar()
 
     missing = missing_api_keys()
